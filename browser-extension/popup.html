@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Virtual Pet Tracker</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen">
+    <div class="logo">🐾</div>
+    <h1>Pet Tracker</h1>
+    <p class="subtitle">Link to your virtual pet</p>
+    <div class="form-group">
+      <input type="text" id="usernameInput" placeholder="Your username" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <input type="password" id="passwordInput" placeholder="Your password" />
+    </div>
+    <button id="loginBtn" class="btn-primary">Connect Pet</button>
+    <p id="loginError" class="error-msg"></p>
+  </div>
+
+  <!-- MAIN SCREEN -->
+  <div id="mainScreen" style="display:none">
+    <div class="header">
+      <div class="pet-avatar">🐱</div>
+      <div class="pet-info">
+        <div class="pet-name" id="petName">Loading…</div>
+        <div class="username-label" id="usernameLabel"></div>
+      </div>
+      <button id="logoutBtn" class="btn-icon" title="Disconnect">✕</button>
+    </div>
+
+    <div class="health-section">
+      <div class="health-label">
+        <span>Health</span>
+        <span id="healthValue">--</span>
+      </div>
+      <div class="health-bar-bg">
+        <div class="health-bar-fill" id="healthBar"></div>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <span class="status-badge" id="statusBadge">Loading…</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="today-section">
+      <div class="section-title">⚠️ Today's Distractions</div>
+      <div id="distractionList" class="distraction-list">
+        <div class="empty-msg">No distractions today! 🎉</div>
+      </div>
+    </div>
+
+    <div class="last-penalty" id="lastPenalty" style="display:none">
+      <span id="lastPenaltyText"></span>
+    </div>
+
+    <div class="footer">
+      <span>Tracking: active tab only</span>
+      <button id="refreshBtn" class="btn-refresh">↻ Refresh</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

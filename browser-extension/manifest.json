@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Commit — Your Virtual Pet Tracker",
+  "version": "1.0",
+  "description": "Tracks your social media usage and punishes your virtual pet for wasted time.",
+  "permissions": ["tabs", "alarms", "storage", "activeTab"],
+  "host_permissions": ["http://localhost:3001/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Virtual Pet Tracker"
+  },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
