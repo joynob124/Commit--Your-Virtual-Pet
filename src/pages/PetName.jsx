@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
-export default function PetName({ username, userId, onName }) {
+export default function PetName({ username, userId, onName, onPetId }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -25,6 +25,7 @@ export default function PetName({ username, userId, onName }) {
 
       if (response.ok) {
         onName(name.trim());
+        if (onPetId && data.petId) onPetId(data.petId);
         navigate('/pet');
       } else {
         alert(data.error || 'Failed to create pet');

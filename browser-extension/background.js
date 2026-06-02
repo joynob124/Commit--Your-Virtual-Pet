@@ -87,9 +87,13 @@ async function sendPenalty(petId, site, minutes) {
     console.log(`[PetTracker] Penalty sent: ${data.message}`);
 
     // Store the last penalty info so popup can show it
-    await chrome.storage.local.set({
-      lastPenalty: { site, minutes, healthLoss: data.healthLoss, newHealth: data.newHealth, time: Date.now() }
-    });
+    const updates = {
+      lastPenalty: { site, minutes, healthLoss: data.healthLoss, newHealth: data.newHealth, time: Date.now() },
+    };
+    if (data.newHealth !== undefined) {
+      updates.petHealth = data.newHealth;
+    }
+    await chrome.storage.local.set(updates);
   } catch (err) {
     console.warn('[PetTracker] Failed to send penalty:', err.message);
   }

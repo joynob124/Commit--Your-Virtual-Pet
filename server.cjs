@@ -1,5 +1,81 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { DatabaseSync } = require('node:sqlite');
+
+class ShimDatabase {
+  constructor(dbPath, callback) {
+    try {
+      this.db = new DatabaseSync(dbPath);
+      if (callback) process.nextTick(() => callback(null));
+    } catch (err) {
+      if (callback) process.nextTick(() => callback(err));
+    }
+  }
+
+  serialize(callback) {
+    callback();
+  }
+
+  run(sql, params, callback) {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    params = params || [];
+    try {
+      const stmt = this.db.prepare(sql);
+      const result = stmt.run(...params);
+      if (callback) {
+        const context = {
+          lastID: result.lastInsertRowid,
+          changes: result.changes
+        };
+        process.nextTick(() => callback.call(context, null));
+      }
+    } catch (err) {
+      if (callback) process.nextTick(() => callback(err));
+    }
+    return this;
+  }
+
+  get(sql, params, callback) {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    params = params || [];
+    try {
+      const stmt = this.db.prepare(sql);
+      const row = stmt.get(...params);
+      if (callback) process.nextTick(() => callback(null, row));
+    } catch (err) {
+      if (callback) process.nextTick(() => callback(err));
+    }
+    return this;
+  }
+
+  all(sql, params, callback) {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    params = params || [];
+    try {
+      const stmt = this.db.prepare(sql);
+      const rows = stmt.all(...params);
+      if (callback) process.nextTick(() => callback(null, rows));
+    } catch (err) {
+      if (callback) process.nextTick(() => callback(err));
+    }
+    return this;
+  }
+}
+
+const sqlite3 = {
+  verbose() {
+    return this;
+  },
+  Database: ShimDatabase
+};
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const path = require('path');

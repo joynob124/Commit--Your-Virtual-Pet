@@ -33,11 +33,6 @@ function getHealthColor(health) {
 }
 
 async function loadMainScreen(petId, username) {
-  // Fetch live health from backend
-  try {
-    const res = await fetch(`${API_BASE}/api/pets/${username}`);  // userId not petId here
-  } catch(e) {}
-
   // Show pet info from storage
   const storage = await chrome.storage.local.get(['petName', 'petHealth', 'lastPenalty']);
   const petName = storage.petName || 'Your Pet';

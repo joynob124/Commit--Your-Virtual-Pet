@@ -4,44 +4,50 @@ import Login from './pages/Login';
 import PetName from './pages/PetName';
 import PetPage from './pages/PetPage';
 import FossilPage from './pages/FossilPage';
+import DistractionPage from './pages/DistractionPage';
 import './App.css';
 
-export default function App() {
-  const [user, setUser] = useState(null);    
-  const [petName, setPetName] = useState(null);
-  const [userId, setUserId] = useState(null);
+function readStoredSession() {
+  const savedUser = localStorage.getItem('user');
+  const savedUserId = localStorage.getItem('userId');
+  const savedPetName = localStorage.getItem('petName');
+  const savedPetId = localStorage.getItem('petId');
 
-  // Load user data from localStorage on mount
-  useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    const savedUserId = localStorage.getItem('userId');
-    const savedPetName = localStorage.getItem('petName');
-    
-    if (savedUser && savedUserId) {
-      setUser({ username: savedUser });
-      setUserId(parseInt(savedUserId));
-      if (savedPetName) {
-        setPetName(savedPetName);
-      }
-    }
-  }, []);
+  if (!savedUser || !savedUserId) {
+    return { user: null, userId: null, petName: null, petId: null };
+  }
+
+  return {
+    user: { username: savedUser },
+    userId: parseInt(savedUserId, 10),
+    petName: savedPetName || null,
+    petId: savedPetId ? parseInt(savedPetId, 10) : null,
+  };
+}
+
+export default function App() {
+  const [session] = useState(readStoredSession);
+  const [user, setUser] = useState(session.user);
+  const [petName, setPetName] = useState(session.petName);
+  const [userId, setUserId] = useState(session.userId);
+  const [petId, setPetId] = useState(session.petId);
 
   // Save user data to localStorage when it changes
   useEffect(() => {
     if (user) {
       localStorage.setItem('user', user.username);
       localStorage.setItem('userId', userId);
-      if (petName) {
-        localStorage.setItem('petName', petName);
-      } else {
-        localStorage.removeItem('petName');
-      }
+      if (petName) localStorage.setItem('petName', petName);
+      else localStorage.removeItem('petName');
+      if (petId) localStorage.setItem('petId', petId);
+      else localStorage.removeItem('petId');
     } else {
       localStorage.removeItem('user');
       localStorage.removeItem('userId');
       localStorage.removeItem('petName');
+      localStorage.removeItem('petId');
     }
-  }, [user, userId, petName]);
+  }, [user, userId, petName, petId]);
 
   return (
     <BrowserRouter>
@@ -54,7 +60,8 @@ export default function App() {
               : <Login onLogin={(userData) => {
                   setUser({ username: userData.username });
                   setUserId(userData.userId);
-                  if (userData.petName) setPetName(userData.petName);
+                  setPetName(userData.petName || null);
+                  setPetId(userData.petId ?? null);
                 }} />
           }
         />
@@ -65,7 +72,12 @@ export default function App() {
               ? <Navigate to="/" replace />
               : petName
               ? <Navigate to="/pet" replace />
-              : <PetName username={user.username} userId={userId} onName={setPetName} />
+              : <PetName
+                  username={user.username}
+                  userId={userId}
+                  onName={setPetName}
+                  onPetId={setPetId}
+                />
           }
         />
         <Route
@@ -73,10 +85,11 @@ export default function App() {
           element={
             !user || !petName
               ? <Navigate to="/" replace />
-              : <PetPage username={user.username} userId={userId} petName={petName} onLogout={() => {
+              : <PetPage username={user.username} userId={userId} petName={petName} onPetId={setPetId} onLogout={() => {
                   setUser(null);
                   setUserId(null);
                   setPetName(null);
+                  setPetId(null);
                 }} />
           }
         />
@@ -89,7 +102,28 @@ export default function App() {
                   setUser(null);
                   setUserId(null);
                   setPetName(null);
+                  setPetId(null);
                 }} />
+          }
+        />
+        <Route
+          path="/distractions"
+          element={
+            !user || !petName
+              ? <Navigate to="/" replace />
+              : <DistractionPage
+                  username={user.username}
+                  userId={userId}
+                  petId={petId}
+                  petName={petName}
+                  onPetId={setPetId}
+                  onLogout={() => {
+                    setUser(null);
+                    setUserId(null);
+                    setPetName(null);
+                    setPetId(null);
+                  }}
+                />
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />

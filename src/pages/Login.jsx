@@ -27,10 +27,11 @@ export default function Login({ onLogin }) {
       const data = await response.json();
 
       if (response.ok) {
-        onLogin({ 
-          username: data.username, 
+        onLogin({
+          username: data.username,
           userId: data.userId,
-          petName: data.petName 
+          petName: data.petName,
+          petId: data.petId,
         });
         navigate(data.petName ? '/pet' : '/name');
       } else {
