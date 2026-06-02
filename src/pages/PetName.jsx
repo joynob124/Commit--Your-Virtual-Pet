@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { formatPetAppearance, PET_SPECIES } from '../constants/petCatalog';
 
-export default function PetName({ username, userId, onName, onPetId }) {
+export default function PetName({ username, userId, onName, onPetId, onLogout }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -26,10 +26,24 @@ export default function PetName({ username, userId, onName, onPetId }) {
       if (response.ok) {
         onName(name.trim());
         if (onPetId && data.petId) onPetId(data.petId);
+        if (data.petType != null) {
+          const appearance = formatPetAppearance(
+            data.petType,
+            data.themeIndex,
+            data.petColor,
+            data.petColorSick,
+          );
+          alert(`${name.trim()} hatched as a ${appearance}! 🥚`);
+        }
         navigate('/pet');
       } else {
         alert(data.error || 'Failed to create pet');
-        setLoading(false);
+        if (response.status === 401 && onLogout) {
+          onLogout();
+          navigate('/');
+        } else {
+          setLoading(false);
+        }
       }
     } catch (error) {
       console.error('Pet creation error:', error);
@@ -163,7 +177,10 @@ export default function PetName({ username, userId, onName, onPetId }) {
             letterSpacing: '1px',
           }}>Name your pet</h1>
           <p style={{ fontSize: '0.86rem', color: '#7c6ca0', lineHeight: 1.7, margin: 0 }}>
-            Hey <span style={{ color: '#2b1864', fontWeight: 600 }}>{username}</span>!<br/> Give your pet a beautiful name <br/> they'll carry it forever.
+            Hey <span style={{ color: '#2b1864', fontWeight: 600 }}>{username}</span>!<br/>
+            Name your companion — we&apos;ll hatch one of{' '}
+            <strong>{PET_SPECIES.length}</strong> species in a{' '}
+            <strong>random color</strong> (unique every time).
           </p>
         </div>
 

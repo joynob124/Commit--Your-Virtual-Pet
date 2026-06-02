@@ -4,10 +4,23 @@ import { OrbitControls, ContactShadows, Environment } from "@react-three/drei";
 import { useNavigate } from "react-router-dom";
 import { Focus, AlertTriangle, ChevronRight } from "lucide-react";
 import { getSiteMeta } from "../constants/socialSites";
+import {
+  getSpeciesLabel,
+  resolvePetColors,
+  formatPetAppearance,
+  lightenColor,
+  darkenColor,
+} from "../constants/petCatalog";
+import {
+  ExtraPetBody,
+  ExtraPetHeadFeatures,
+  ExtraPetLimbs,
+  getExtraPetHeadLayout,
+  isExtraPet,
+} from "../pets/extraPetMeshes";
 
 const API_BASE = "http://localhost:3001";
 const HEALTH_POLL_MS = 10_000;
-const BIRD_COLOR = "#ff4d4d";
 
 function detectNewPenalties(prevLog, nextLog) {
   if (!prevLog) return [];
@@ -26,16 +39,36 @@ function detectNewPenalties(prevLog, nextLog) {
   return toasts;
 }
 
-function PetModel({ isSyncing = false, health = 100 }) {
+function PetModel({
+  isSyncing = false,
+  health = 100,
+  petType: propPetType = null,
+  themeIndex: propThemeIndex = null,
+  petColor: propPetColor = null,
+  petColorSick: propPetColorSick = null,
+}) {
   const groupRef = useRef();
   const leftWingRef = useRef();
   const rightWingRef = useRef();
   const headRef = useRef();
   const leftEyeRef = useRef();
   const rightEyeRef = useRef();
+  const leftEarRef = useRef();
+  const rightEarRef = useRef();
+  const tailRef = useRef();
+  const trunkRef = useRef();
 
   const isLowHealth = health < 35;
-  const currentBirdColor = isLowHealth ? "#bd7575" : BIRD_COLOR;
+  const petType = propPetType ?? "bird";
+  const theme = resolvePetColors({
+    themeIndex: propThemeIndex,
+    petColor: propPetColor,
+    petColorSick: propPetColorSick,
+  });
+  const currentPetColor = isLowHealth ? theme.sick : theme.base;
+  const woolColor = lightenColor(theme.base, 0.42);
+  const patchColor = darkenColor(theme.base, 0.5);
+  const accentColor = lightenColor(theme.base, 0.32);
 
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
@@ -45,149 +78,1360 @@ function PetModel({ isSyncing = false, health = 100 }) {
       if (isSyncing) {
         groupRef.current.position.y = Math.abs(Math.sin(t * 6)) * 0.4;
       } else if (isLowHealth) {
-        // Shivering animation when sick/sad
         groupRef.current.position.y = -0.08 + Math.sin(t * 22) * 0.015;
       } else {
-        groupRef.current.position.y = Math.sin(t * 2) * 0.1;
+        if (petType === "bunny") {
+          // Realistic hopping arc: smooth parabolic bounce
+          const hop = Math.pow(Math.max(0, Math.sin(t * 3.5)), 1.6);
+          groupRef.current.position.y = hop * 0.35 - 0.05;
+        } else if (petType === "frog") {
+          groupRef.current.position.y =
+            Math.max(0, Math.sin(t * 4.5)) * 0.18 - 0.05;
+        } else if (
+          petType === "cat" ||
+          petType === "dog" ||
+          petType === "fox"
+        ) {
+          // Breathing sway
+          groupRef.current.position.y = Math.sin(t * 1.8) * 0.05 - 0.02;
+          groupRef.current.rotation.z = Math.sin(t * 1.8) * 0.015;
+        } else if (petType === "bird") {
+          // Bird bobs up and down with each wing flap
+          groupRef.current.position.y = Math.sin(t * 5) * 0.07;
+        } else if (petType === "alien") {
+          groupRef.current.position.y = Math.sin(t * 2.2) * 0.14 + 0.06;
+        } else if (petType === "pig") {
+          groupRef.current.position.y = Math.sin(t * 3.2) * 0.06 - 0.02;
+          groupRef.current.rotation.z = Math.sin(t * 3.2) * 0.02;
+        } else if (petType === "sheep") {
+          groupRef.current.position.y = Math.sin(t * 1.6) * 0.05;
+        } else if (petType === "hamster" || petType === "chick") {
+          groupRef.current.position.y = Math.sin(t * 4) * 0.04 - 0.02;
+        } else if (petType === "duck" || petType === "seal") {
+          groupRef.current.position.y = Math.sin(t * 2.2) * 0.06;
+        } else if (petType === "wolf" || petType === "dragon") {
+          groupRef.current.position.y = Math.sin(t * 2.8) * 0.05;
+          groupRef.current.rotation.y = Math.sin(t * 1.2) * 0.04;
+        } else if (petType === "snake") {
+          groupRef.current.position.y = Math.sin(t * 1.4) * 0.03 - 0.12;
+        } else if (petType === "scorpion") {
+          groupRef.current.position.y = -0.15 + Math.sin(t * 3) * 0.02;
+        } else {
+          groupRef.current.position.y = Math.sin(t * 2.5) * 0.08;
+        }
       }
     }
 
     // Head movement
     if (headRef.current) {
       if (isLowHealth) {
-        // Drooped/sad head posture
-        headRef.current.position.y = 0.62;
+        headRef.current.position.y =
+          getExtraPetHeadLayout(petType)?.y ??
+          (petType === "cat" ||
+          petType === "dog" ||
+          petType === "fox" ||
+          petType === "pig" ||
+          petType === "wolf"
+            ? 0.48
+            : petType === "bunny"
+              ? 0.95
+              : 0.62);
         headRef.current.rotation.x = 0.22 + Math.sin(t * 1.5) * 0.04;
         headRef.current.rotation.y = Math.sin(t * 0.5) * 0.08;
       } else {
-        headRef.current.position.y = 0.7;
-        headRef.current.rotation.y = Math.sin(t * 1.5) * 0.15;
-        headRef.current.rotation.x = Math.sin(t * 2) * 0.05;
+        headRef.current.position.y =
+          getExtraPetHeadLayout(petType)?.y ??
+          (petType === "cat" ||
+          petType === "dog" ||
+          petType === "fox" ||
+          petType === "pig" ||
+          petType === "wolf"
+            ? 0.55
+            : petType === "bunny"
+              ? 1.05
+              : 0.7);
+        headRef.current.rotation.y = Math.sin(t * 1.5) * 0.12;
+        headRef.current.rotation.x = Math.sin(t * 2) * 0.04;
       }
     }
 
-    // Eye Blinking & Drooping
+    // Eye Blinking
     const blink = Math.pow(Math.sin(t * 0.5), 20) > 0.95 ? 0.1 : 1;
-    const eyeScaleY = isLowHealth ? 0.35 : 1; // half-closed/weak eyes when sick
+    const eyeScaleY = isLowHealth ? 0.35 : 1;
     if (leftEyeRef.current && rightEyeRef.current) {
       leftEyeRef.current.scale.y = blink * eyeScaleY;
       rightEyeRef.current.scale.y = blink * eyeScaleY;
-
-      // Eyeball movement - listless when sick
-      const eyeMove = isLowHealth ? Math.sin(t * 0.5) * 0.01 : Math.sin(t * 2) * 0.05;
+      const eyeMove = isLowHealth
+        ? Math.sin(t * 0.5) * 0.01
+        : Math.sin(t * 2) * 0.05;
       leftEyeRef.current.rotation.y = eyeMove;
       rightEyeRef.current.rotation.y = eyeMove;
     }
 
-    // Wings
-    if (leftWingRef.current && rightWingRef.current) {
+    // Wings (Bird) — rapid flapping, synced with body bob
+    if (
+      leftWingRef.current &&
+      rightWingRef.current &&
+      (petType === "bird" ||
+        petType === "duck" ||
+        petType === "chick" ||
+        petType === "dragon")
+    ) {
       if (isSyncing) {
-        const flap = Math.sin(t * 20) * 0.8;
-        leftWingRef.current.rotation.z = flap + 0.5;
-        rightWingRef.current.rotation.z = -flap - 0.5;
+        const flap = Math.sin(t * 22) * 1.0;
+        leftWingRef.current.rotation.z = flap + 0.3;
+        rightWingRef.current.rotation.z = -flap - 0.3;
       } else if (isLowHealth) {
-        // Wings hang listlessly and flap very weakly
         const flap = Math.sin(t * 1.5) * 0.04;
-        leftWingRef.current.rotation.z = flap + 0.12;
-        rightWingRef.current.rotation.z = -flap - 0.12;
+        leftWingRef.current.rotation.z = flap + 0.15;
+        rightWingRef.current.rotation.z = -flap - 0.15;
       } else {
-        const flap = Math.sin(t * 5) * 0.2;
-        leftWingRef.current.rotation.z = flap + 0.5;
-        rightWingRef.current.rotation.z = -flap - 0.5;
+        // Fast wing flap matched to body bob frequency
+        const flap = Math.sin(t * 5) * 0.35;
+        leftWingRef.current.rotation.z = flap + 0.4;
+        rightWingRef.current.rotation.z = -flap - 0.4;
+      }
+    }
+
+    // Bunny Ears
+    if (
+      leftEarRef.current &&
+      rightEarRef.current &&
+      (petType === "bunny" || petType === "wolf")
+    ) {
+      if (isSyncing) {
+        leftEarRef.current.rotation.z = 0.15 + Math.sin(t * 15) * 0.2;
+        rightEarRef.current.rotation.z = -0.15 - Math.sin(t * 15) * 0.2;
+      } else if (isLowHealth) {
+        leftEarRef.current.rotation.z = 0.55 + Math.sin(t * 1.5) * 0.05;
+        rightEarRef.current.rotation.z = -0.55 - Math.sin(t * 1.5) * 0.05;
+        leftEarRef.current.rotation.x = 0.4;
+        rightEarRef.current.rotation.x = 0.4;
+      } else {
+        leftEarRef.current.rotation.z = 0.15 + Math.sin(t * 2) * 0.04;
+        rightEarRef.current.rotation.z = -0.15 - Math.sin(t * 2) * 0.04;
+        leftEarRef.current.rotation.x = 0.1;
+        rightEarRef.current.rotation.x = 0.1;
+      }
+    }
+
+    // Tails (Cat, Dog, Fox, Pig) — cat has fast perky wiggle
+    if (
+      tailRef.current &&
+      (petType === "cat" ||
+        petType === "dog" ||
+        petType === "fox" ||
+        petType === "pig" ||
+        petType === "wolf")
+    ) {
+      if (isSyncing) {
+        tailRef.current.rotation.y = Math.sin(t * 14) * 0.55;
+        tailRef.current.rotation.x = -0.3;
+      } else if (isLowHealth) {
+        tailRef.current.rotation.y = Math.sin(t * 1) * 0.05;
+        tailRef.current.rotation.x = -0.8;
+      } else if (petType === "cat") {
+        // Cat: high curling tail, slow graceful sway side to side
+        tailRef.current.rotation.y = Math.sin(t * 2.5) * 0.45;
+        tailRef.current.rotation.x = -0.9 + Math.sin(t * 1.2) * 0.1;
+      } else {
+        tailRef.current.rotation.y = Math.sin(t * 4) * 0.3;
+        tailRef.current.rotation.x = -0.4;
+      }
+    }
+
+    // Scorpion tail sting sway
+    if (tailRef.current && petType === "scorpion") {
+      if (isSyncing) {
+        tailRef.current.rotation.x = 0.4 + Math.sin(t * 10) * 0.35;
+      } else if (isLowHealth) {
+        tailRef.current.rotation.x = 0.75 + Math.sin(t * 1) * 0.05;
+      } else {
+        tailRef.current.rotation.x = 0.55 + Math.sin(t * 3.5) * 0.2;
+        tailRef.current.rotation.y = Math.sin(t * 2) * 0.15;
+      }
+    }
+
+    // Trunk (Elephant)
+    if (trunkRef.current && petType === "elephant") {
+      if (isSyncing) {
+        trunkRef.current.rotation.x = -0.6 + Math.sin(t * 8) * 0.3;
+      } else if (isLowHealth) {
+        trunkRef.current.rotation.x = 0.5 + Math.sin(t * 1) * 0.05;
+      } else {
+        trunkRef.current.rotation.x = 0.1 + Math.sin(t * 2) * 0.12;
       }
     }
   });
 
   return (
     <group ref={groupRef}>
-      {/* body */}
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[0.8, 32, 32]} />
-        <meshStandardMaterial color={currentBirdColor} roughness={0.8} />
-      </mesh>
-      {/* belly */}
-      <mesh position={[0, -0.15, 0.38]}>
-        <sphereGeometry args={[0.52, 32, 32]} />
-        <meshStandardMaterial color="white" roughness={1} />
-      </mesh>
-      {/* head */}
-      <group ref={headRef} position={[0, 0.7, 0.2]}>
-        <mesh>
-          <sphereGeometry args={[0.6, 32, 32]} />
-          <meshStandardMaterial color={currentBirdColor} />
+      {/* BIRD — large round body, prominent white belly patch, cute claws */}
+      {petType === "bird" && (
+        <>
+          {/* Main round body */}
+          <mesh position={[0, 0, 0]} scale={[1, 1.05, 0.95]}>
+            <sphereGeometry args={[0.78, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.6} />
+          </mesh>
+          {/* White belly patch */}
+          <mesh position={[0, -0.18, 0.44]} scale={[0.85, 0.72, 0.55]}>
+            <sphereGeometry args={[0.55, 32, 32]} />
+            <meshStandardMaterial color="white" roughness={1} />
+          </mesh>
+          {/* Bird Claws */}
+          <group position={[0, -0.75, 0.15]}>
+            <mesh position={[-0.18, 0, 0]} rotation={[0.2, 0.1, 0]}>
+              <capsuleGeometry args={[0.04, 0.14, 8, 8]} />
+              <meshStandardMaterial color="#FFA500" roughness={0.5} />
+            </mesh>
+            <mesh position={[-0.18, -0.05, 0.08]} rotation={[0.2, 0.6, 0]}>
+              <capsuleGeometry args={[0.03, 0.1, 8, 8]} />
+              <meshStandardMaterial color="#FFA500" roughness={0.5} />
+            </mesh>
+            <mesh position={[0.18, 0, 0]} rotation={[0.2, -0.1, 0]}>
+              <capsuleGeometry args={[0.04, 0.14, 8, 8]} />
+              <meshStandardMaterial color="#FFA500" roughness={0.5} />
+            </mesh>
+            <mesh position={[0.18, -0.05, 0.08]} rotation={[0.2, -0.6, 0]}>
+              <capsuleGeometry args={[0.03, 0.1, 8, 8]} />
+              <meshStandardMaterial color="#FFA500" roughness={0.5} />
+            </mesh>
+          </group>
+        </>
+      )}
+
+      {/* BUNNY — tall pear/egg silhouette, cute hind feet & cotton tail */}
+      {petType === "bunny" && (
+        <>
+          {/* Lower pear belly */}
+          <mesh position={[0, -0.18, 0]} scale={[1.0, 1.0, 0.92]}>
+            <sphereGeometry args={[0.76, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.75} />
+          </mesh>
+          {/* Upper chest */}
+          <mesh position={[0, 0.48, 0]} scale={[0.72, 0.82, 0.78]}>
+            <sphereGeometry args={[0.72, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.75} />
+          </mesh>
+          {/* White tummy patch */}
+          <mesh position={[0, -0.1, 0.44]} scale={[0.8, 1.15, 0.55]}>
+            <sphereGeometry args={[0.52, 32, 32]} />
+            <meshStandardMaterial color="white" roughness={1} />
+          </mesh>
+          {/* Front paws */}
+          <mesh position={[-0.35, 0.1, 0.3]} rotation={[0.4, 0, 0.3]}>
+            <capsuleGeometry args={[0.07, 0.2, 8, 16]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          <mesh position={[0.35, 0.1, 0.3]} rotation={[0.4, 0, -0.3]}>
+            <capsuleGeometry args={[0.07, 0.2, 8, 16]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          {/* Big hind feet */}
+          <mesh position={[-0.3, -0.85, 0.15]} rotation={[-0.15, 0, 0]}>
+            <capsuleGeometry args={[0.1, 0.35, 8, 16]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          <mesh position={[0.3, -0.85, 0.15]} rotation={[-0.15, 0, 0]}>
+            <capsuleGeometry args={[0.1, 0.35, 8, 16]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          {/* White toe pads */}
+          <mesh position={[-0.3, -0.88, 0.38]}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshStandardMaterial color="white" />
+          </mesh>
+          <mesh position={[0.3, -0.88, 0.38]}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshStandardMaterial color="white" />
+          </mesh>
+          {/* Fluffy cotton tail */}
+          <mesh position={[0, -0.15, -0.8]}>
+            <sphereGeometry args={[0.18, 16, 16]} />
+            <meshStandardMaterial color="white" roughness={1.2} />
+          </mesh>
+        </>
+      )}
+
+      {/* CAT — horizontal capsule body, tail, clean legs & paws */}
+      {petType === "cat" && (
+        <>
+          {/* Horizontal barrel body */}
+          <mesh position={[0, -0.08, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.52, 0.52, 1.3, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.75} />
+          </mesh>
+          {/* Round cap front */}
+          <mesh position={[0, -0.08, 0.65]}>
+            <sphereGeometry args={[0.52, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.75} />
+          </mesh>
+          {/* Round cap back */}
+          <mesh position={[0, -0.08, -0.65]}>
+            <sphereGeometry args={[0.52, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.75} />
+          </mesh>
+          {/* White belly stripe */}
+          <mesh position={[0, -0.46, 0.2]} scale={[0.65, 0.25, 0.9]}>
+            <sphereGeometry args={[0.62, 32, 32]} />
+            <meshStandardMaterial color="white" roughness={1} />
+          </mesh>
+        </>
+      )}
+
+      {/* DOG / FOX / PIG — horizontal capsule body */}
+      {(petType === "dog" || petType === "fox" || petType === "pig") && (
+        <>
+          <mesh position={[0, -0.1, -0.05]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry
+              args={[
+                petType === "pig" ? 0.6 : 0.52,
+                petType === "pig" ? 0.6 : 0.52,
+                1.25,
+                32,
+              ]}
+            />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          <mesh position={[0, -0.18, 0.3]} scale={[1, 1.1, 1]}>
+            <sphereGeometry args={[0.42, 32, 32]} />
+            <meshStandardMaterial color="white" roughness={1} />
+          </mesh>
+        </>
+      )}
+
+      {/* BEAR / PANDA — themed bear or panda with matching accents */}
+      {(petType === "bear" || petType === "panda") && (
+        <>
+          {/* Main Body - Panda uses currentPetColor (NOT hardcoded white) */}
+          <mesh position={[0, 0, 0]} scale={[1.1, 1.1, 1.1]}>
+            <sphereGeometry args={[0.75, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          {/* Belly Patch - Panda uses dark charcoal, Bear uses white */}
+          <mesh position={[0, -0.1, 0.38]}>
+            <sphereGeometry args={[0.54, 32, 32]} />
+            <meshStandardMaterial
+              color={petType === "panda" ? patchColor : "white"}
+              roughness={1}
+            />
+          </mesh>
+        </>
+      )}
+
+      {/* PENGUIN — sleek body, white belly */}
+      {petType === "penguin" && (
+        <>
+          <mesh position={[0, 0, 0]} scale={[1, 1.3, 0.95]}>
+            <sphereGeometry args={[0.75, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          <mesh position={[0, -0.1, 0.38]}>
+            <sphereGeometry args={[0.54, 32, 32]} />
+            <meshStandardMaterial color="white" roughness={1} />
+          </mesh>
+        </>
+      )}
+
+      {/* FROG — squashed body, cream belly */}
+      {petType === "frog" && (
+        <>
+          <mesh position={[0, -0.1, 0]} scale={[1.2, 0.9, 1.1]}>
+            <sphereGeometry args={[0.72, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          <mesh position={[0, -0.18, 0.36]} scale={[1.1, 0.9, 1.1]}>
+            <sphereGeometry args={[0.45, 32, 32]} />
+            <meshStandardMaterial color="#fffacd" roughness={1} />
+          </mesh>
+        </>
+      )}
+
+      {/* ELEPHANT — heavy body, gray chest */}
+      {petType === "elephant" && (
+        <>
+          <mesh position={[0, 0, 0]} scale={[1.22, 1.22, 1.22]}>
+            <sphereGeometry args={[0.74, 32, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          <mesh position={[0, -0.1, 0.42]}>
+            <sphereGeometry args={[0.56, 32, 32]} />
+            <meshStandardMaterial color="#dcdde1" roughness={1} />
+          </mesh>
+        </>
+      )}
+
+      {/* SHEEP — fluffy body made of overlapping wool puffs */}
+      {petType === "sheep" && (
+        <>
+          {/* Central body base */}
+          <mesh position={[0, 0, 0]} scale={[1.1, 1.1, 1.1]}>
+            <sphereGeometry args={[0.75, 32, 32]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+          {/* Fluffy wool puffs surrounding the body */}
+          <mesh position={[-0.32, 0.22, 0.32]}>
+            <sphereGeometry args={[0.38, 16, 16]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+          <mesh position={[0.32, 0.22, 0.32]}>
+            <sphereGeometry args={[0.38, 16, 16]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+          <mesh position={[-0.35, -0.22, 0.35]}>
+            <sphereGeometry args={[0.34, 16, 16]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+          <mesh position={[0.35, -0.22, 0.35]}>
+            <sphereGeometry args={[0.34, 16, 16]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+          <mesh position={[0, 0.45, -0.25]}>
+            <sphereGeometry args={[0.42, 16, 16]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+          <mesh position={[0, -0.35, -0.35]}>
+            <sphereGeometry args={[0.42, 16, 16]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+          <mesh position={[-0.45, 0, -0.2]}>
+            <sphereGeometry args={[0.36, 16, 16]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+          <mesh position={[0.45, 0, -0.2]}>
+            <sphereGeometry args={[0.36, 16, 16]} />
+            <meshStandardMaterial color={woolColor} roughness={1.0} />
+          </mesh>
+        </>
+      )}
+
+      {/* ALIEN — vertical body, high-tech chest plate */}
+      {petType === "alien" && (
+        <>
+          <mesh position={[0, -0.15, 0]}>
+            <cylinderGeometry args={[0.42, 0.42, 1.1, 32]} />
+            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          </mesh>
+          <mesh position={[0, -0.1, 0.32]}>
+            <sphereGeometry args={[0.34, 32, 32]} />
+            <meshStandardMaterial color="#ff7675" roughness={1} />
+          </mesh>
+        </>
+      )}
+
+      <ExtraPetBody
+        petType={petType}
+        currentPetColor={currentPetColor}
+        woolColor={woolColor}
+        patchColor={patchColor}
+        accentColor={accentColor}
+      />
+
+      {/* HEAD SECTION */}
+      <group
+        ref={headRef}
+        position={[
+          0,
+          getExtraPetHeadLayout(petType)?.y ??
+            (petType === "cat" ||
+            petType === "dog" ||
+            petType === "fox" ||
+            petType === "pig" ||
+            petType === "wolf"
+              ? 0.55
+              : petType === "bunny"
+                ? 1.05
+                : petType === "alien"
+                  ? 0.85
+                  : 0.7),
+          getExtraPetHeadLayout(petType)?.z ??
+            (petType === "cat" ||
+            petType === "dog" ||
+            petType === "fox" ||
+            petType === "pig" ||
+            petType === "wolf"
+              ? 0.55
+              : 0.2),
+        ]}
+      >
+        {/* Head Base - Panda uses currentPetColor (NOT hardcoded white) */}
+        <mesh scale={petType === "bunny" ? [1.0, 0.88, 0.95] : [1, 1, 1]}>
+          <sphereGeometry
+            args={[
+              getExtraPetHeadLayout(petType)?.r ??
+                (petType === "alien"
+                  ? 0.64
+                  : petType === "bunny"
+                    ? 0.46
+                    : 0.55),
+              32,
+              32,
+            ]}
+          />
+          <meshStandardMaterial
+            color={petType === "sheep" ? patchColor : currentPetColor}
+          />
         </mesh>
-        {/* crest */}
-        <mesh position={[0, 0.55, -0.1]} rotation={[-0.2, 0, 0]}>
-          <coneGeometry args={[0.12, 0.5, 16]} />
-          <meshStandardMaterial color={currentBirdColor} />
-        </mesh>
+
+        <ExtraPetHeadFeatures
+          petType={petType}
+          currentPetColor={currentPetColor}
+          woolColor={woolColor}
+          patchColor={patchColor}
+          accentColor={accentColor}
+          leftEarRef={leftEarRef}
+          rightEarRef={rightEarRef}
+          leftEyeRef={leftEyeRef}
+          rightEyeRef={rightEyeRef}
+        />
+
+        {/* BIRD CREST */}
+        {petType === "bird" && (
+          <mesh position={[0, 0.55, -0.1]} rotation={[-0.2, 0, 0]}>
+            <coneGeometry args={[0.12, 0.5, 16]} />
+            <meshStandardMaterial color={currentPetColor} />
+          </mesh>
+        )}
+
+        {/* BUNNY EARS */}
+        {petType === "bunny" && (
+          <>
+            <group
+              ref={leftEarRef}
+              position={[-0.18, 0.38, -0.02]}
+              rotation={[0.05, 0, 0.12]}
+            >
+              <mesh position={[0, 0.42, 0]}>
+                <cylinderGeometry args={[0.055, 0.08, 0.85, 16]} />
+                <meshStandardMaterial color={currentPetColor} />
+              </mesh>
+              <mesh position={[0, 0.42, 0.03]}>
+                <cylinderGeometry args={[0.028, 0.045, 0.72, 16]} />
+                <meshStandardMaterial color="#ffb3ba" />
+              </mesh>
+            </group>
+            <group
+              ref={rightEarRef}
+              position={[0.18, 0.38, -0.02]}
+              rotation={[0.05, 0, -0.12]}
+            >
+              <mesh position={[0, 0.42, 0]}>
+                <cylinderGeometry args={[0.055, 0.08, 0.85, 16]} />
+                <meshStandardMaterial color={currentPetColor} />
+              </mesh>
+              <mesh position={[0, 0.42, 0.03]}>
+                <cylinderGeometry args={[0.028, 0.045, 0.72, 16]} />
+                <meshStandardMaterial color="#ffb3ba" />
+              </mesh>
+            </group>
+          </>
+        )}
+
+        {/* CAT EARS */}
+        {petType === "cat" && (
+          <>
+            <mesh position={[-0.32, 0.45, 0.1]} rotation={[0.1, 0, 0.32]}>
+              <coneGeometry args={[0.15, 0.32, 4]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0.32, 0.45, 0.1]} rotation={[0.1, 0, -0.32]}>
+              <coneGeometry args={[0.15, 0.32, 4]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </>
+        )}
+
+        {/* DOG FLOPPY EARS */}
+        {petType === "dog" && (
+          <>
+            <group position={[-0.45, 0.2, 0]} rotation={[0, 0, 0.15]}>
+              <mesh position={[0, -0.22, 0]}>
+                <boxGeometry args={[0.14, 0.42, 0.14]} />
+                <meshStandardMaterial color={currentPetColor} />
+              </mesh>
+            </group>
+            <group position={[0.45, 0.2, 0]} rotation={[0, 0, -0.15]}>
+              <mesh position={[0, -0.22, 0]}>
+                <boxGeometry args={[0.14, 0.42, 0.14]} />
+                <meshStandardMaterial color={currentPetColor} />
+              </mesh>
+            </group>
+          </>
+        )}
+
+        {/* FOX POINTY EARS */}
+        {petType === "fox" && (
+          <>
+            <mesh position={[-0.35, 0.48, 0.05]} rotation={[0.1, 0, 0.25]}>
+              <coneGeometry args={[0.16, 0.38, 4]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0.35, 0.48, 0.05]} rotation={[0.1, 0, -0.25]}>
+              <coneGeometry args={[0.16, 0.38, 4]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </>
+        )}
+
+        {/* BEAR / PANDA ROUND EARS - Panda uses dark charcoal */}
+        {(petType === "bear" || petType === "panda") && (
+          <>
+            <mesh position={[-0.38, 0.42, 0.05]}>
+              <sphereGeometry args={[0.16, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+            <mesh position={[0.38, 0.42, 0.05]}>
+              <sphereGeometry args={[0.16, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+          </>
+        )}
+
+        {/* ELEPHANT FLAP EARS */}
+        {petType === "elephant" && (
+          <>
+            <mesh position={[-0.58, 0.08, 0.05]} rotation={[0, 0.2, -0.08]}>
+              <boxGeometry args={[0.08, 0.62, 0.52]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0.58, 0.08, 0.05]} rotation={[0, -0.2, 0.08]}>
+              <boxGeometry args={[0.08, 0.62, 0.52]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </>
+        )}
+
+        {/* FROG BULGING EYES OVERLAY */}
+        {petType === "frog" && (
+          <group position={[0, 0.35, 0.15]}>
+            <mesh position={[-0.24, 0.08, 0]}>
+              <sphereGeometry args={[0.2, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0.24, 0.08, 0]}>
+              <sphereGeometry args={[0.2, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </group>
+        )}
+
+        {/* ALIEN ANTENNA */}
+        {petType === "alien" && (
+          <group position={[0, 0.48, 0]}>
+            <mesh position={[0, 0.22, 0]}>
+              <cylinderGeometry args={[0.02, 0.02, 0.42, 8]} />
+              <meshBasicMaterial color="#ffffff" />
+            </mesh>
+            <mesh position={[0, 0.45, 0]}>
+              <sphereGeometry args={[0.09, 16, 16]} />
+              <meshBasicMaterial color="#ffff00" />
+            </mesh>
+          </group>
+        )}
 
         {/* EYES */}
-        <group position={[0, 0.1, 0.5]}>
-          {/* Left eye */}
-          <mesh position={[-0.25, 0, 0]}>
-            <sphereGeometry args={[0.18, 16, 16]} />
-            <meshStandardMaterial color="white" roughness={0.1} />
-          </mesh>
-          <mesh position={[-0.25, 0, 0.14]} ref={leftEyeRef}>
-            <sphereGeometry args={[0.11, 16, 16]} />
-            <meshBasicMaterial color="#111111" />
-          </mesh>
-          <mesh position={[-0.19, 0.06, 0.22]}>
-            <sphereGeometry args={[0.04, 8, 8]} />
-            <meshBasicMaterial color="white" />
-          </mesh>
+        {petType !== "frog" && petType !== "alien" && !isExtraPet(petType) && (
+          <group position={[0, 0.08, 0.46]}>
+            <mesh position={[-0.22, 0, 0]}>
+              <sphereGeometry args={[0.16, 16, 16]} />
+              <meshStandardMaterial color="white" roughness={0.1} />
+            </mesh>
+            <mesh position={[-0.22, 0, 0.12]} ref={leftEyeRef}>
+              <sphereGeometry args={[0.1, 16, 16]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+            <mesh position={[-0.17, 0.05, 0.2]}>
+              <sphereGeometry args={[0.035, 8, 8]} />
+              <meshBasicMaterial color="white" />
+            </mesh>
 
-          {/* Right eye */}
-          <mesh position={[0.25, 0, 0]}>
-            <sphereGeometry args={[0.18, 16, 16]} />
-            <meshStandardMaterial color="white" roughness={0.1} />
+            <mesh position={[0.22, 0, 0]}>
+              <sphereGeometry args={[0.16, 16, 16]} />
+              <meshStandardMaterial color="white" roughness={0.1} />
+            </mesh>
+            <mesh position={[0.22, 0, 0.12]} ref={rightEyeRef}>
+              <sphereGeometry args={[0.1, 16, 16]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+            <mesh position={[0.27, 0.05, 0.2]}>
+              <sphereGeometry args={[0.035, 8, 8]} />
+              <meshBasicMaterial color="white" />
+            </mesh>
+          </group>
+        )}
+
+        {/* FROG BULGING EYEBALLS */}
+        {petType === "frog" && (
+          <group position={[0, 0.35, 0.15]}>
+            <mesh position={[-0.24, 0.08, 0.14]} ref={leftEyeRef}>
+              <sphereGeometry args={[0.1, 16, 16]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+            <mesh position={[-0.2, 0.12, 0.2]}>
+              <sphereGeometry args={[0.035, 8, 8]} />
+              <meshBasicMaterial color="white" />
+            </mesh>
+            <mesh position={[0.24, 0.08, 0.14]} ref={rightEyeRef}>
+              <sphereGeometry args={[0.1, 16, 16]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+            <mesh position={[0.28, 0.12, 0.2]}>
+              <sphereGeometry args={[0.035, 8, 8]} />
+              <meshBasicMaterial color="white" />
+            </mesh>
+          </group>
+        )}
+
+        {/* ALIEN THREE EYES */}
+        {petType === "alien" && (
+          <group position={[0, 0.08, 0.54]}>
+            <mesh position={[-0.24, 0, 0]} scale={[0.7, 0.7, 0.7]}>
+              <sphereGeometry args={[0.14, 16, 16]} />
+              <meshStandardMaterial color="white" />
+            </mesh>
+            <mesh position={[-0.24, 0, 0.09]} ref={leftEyeRef}>
+              <sphereGeometry args={[0.08, 16, 16]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+            <mesh position={[0, 0.14, 0]}>
+              <sphereGeometry args={[0.16, 16, 16]} />
+              <meshStandardMaterial color="white" />
+            </mesh>
+            <mesh position={[0, 0.14, 0.11]}>
+              <sphereGeometry args={[0.09, 16, 16]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+            <mesh position={[0.24, 0, 0]} scale={[0.7, 0.7, 0.7]}>
+              <sphereGeometry args={[0.14, 16, 16]} />
+              <meshStandardMaterial color="white" />
+            </mesh>
+            <mesh position={[0.24, 0, 0.09]} ref={rightEyeRef}>
+              <sphereGeometry args={[0.08, 16, 16]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+          </group>
+        )}
+
+        {/* PANDA DARK CHARCOAL EYE PATCHES */}
+        {petType === "panda" && (
+          <group position={[0, 0.08, 0.44]}>
+            <mesh position={[-0.22, 0, 0]} rotation={[0, 0, 0.25]}>
+              <boxGeometry args={[0.22, 0.26, 0.02]} />
+              <meshStandardMaterial color={patchColor} />
+            </mesh>
+            <mesh position={[0.22, 0, 0]} rotation={[0, 0, -0.25]}>
+              <boxGeometry args={[0.22, 0.26, 0.02]} />
+              <meshStandardMaterial color={patchColor} />
+            </mesh>
+          </group>
+        )}
+
+        {/* BIRD BEAK */}
+        {petType === "bird" && (
+          <mesh position={[0, -0.1, 0.55]} rotation={[Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.09, 0.22, 16]} />
+            <meshStandardMaterial color="#FFA500" />
           </mesh>
-          <mesh position={[0.25, 0, 0.14]} ref={rightEyeRef}>
-            <sphereGeometry args={[0.11, 16, 16]} />
-            <meshBasicMaterial color="#111111" />
+        )}
+
+        {/* BUNNY SNOUT */}
+        {petType === "bunny" && (
+          <mesh position={[0, -0.05, 0.54]}>
+            <sphereGeometry args={[0.065, 16, 16]} />
+            <meshStandardMaterial color="#ffb3ba" />
           </mesh>
-          <mesh position={[0.31, 0.06, 0.22]}>
-            <sphereGeometry args={[0.04, 8, 8]} />
-            <meshBasicMaterial color="white" />
+        )}
+
+        {/* CAT SNOUT & WHISKERS */}
+        {petType === "cat" && (
+          <>
+            <mesh position={[0, -0.05, 0.53]}>
+              <sphereGeometry args={[0.075, 16, 16]} />
+              <meshStandardMaterial color="#ffb3ba" />
+            </mesh>
+            <group position={[0, -0.08, 0.5]}>
+              <mesh position={[-0.2, 0, 0]} rotation={[0, 0.1, 0.05]}>
+                <boxGeometry args={[0.26, 0.015, 0.015]} />
+                <meshBasicMaterial color="#111111" />
+              </mesh>
+              <mesh position={[-0.2, -0.04, 0]} rotation={[0, 0.1, -0.05]}>
+                <boxGeometry args={[0.26, 0.015, 0.015]} />
+                <meshBasicMaterial color="#111111" />
+              </mesh>
+              <mesh position={[0.2, 0, 0]} rotation={[0, -0.1, -0.05]}>
+                <boxGeometry args={[0.26, 0.015, 0.015]} />
+                <meshBasicMaterial color="#111111" />
+              </mesh>
+              <mesh position={[0.2, -0.04, 0]} rotation={[0, -0.1, 0.05]}>
+                <boxGeometry args={[0.26, 0.015, 0.015]} />
+                <meshBasicMaterial color="#111111" />
+              </mesh>
+            </group>
+          </>
+        )}
+
+        {/* DOG SNOUT & TONGUE */}
+        {petType === "dog" && (
+          <>
+            <mesh position={[0, -0.06, 0.52]}>
+              <boxGeometry args={[0.2, 0.15, 0.18]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, 0.02, 0.62]}>
+              <sphereGeometry args={[0.04, 8, 8]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+            <mesh position={[0, -0.14, 0.54]} rotation={[0.08, 0, 0]}>
+              <boxGeometry args={[0.08, 0.12, 0.03]} />
+              <meshStandardMaterial color="#ff7675" />
+            </mesh>
+          </>
+        )}
+
+        {/* FOX LONG SNOUT */}
+        {petType === "fox" && (
+          <>
+            <mesh position={[0, -0.08, 0.58]} rotation={[0.1, 0, 0]}>
+              <coneGeometry args={[0.12, 0.35, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.05, 0.76]}>
+              <sphereGeometry args={[0.035, 8, 8]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+          </>
+        )}
+
+        {/* BEAR / PANDA SNOUT */}
+        {(petType === "bear" || petType === "panda") && (
+          <>
+            <mesh position={[0, -0.08, 0.52]}>
+              <sphereGeometry args={[0.12, 16, 16]} />
+              <meshStandardMaterial color="#f5cd79" />
+            </mesh>
+            <mesh position={[0, -0.02, 0.62]}>
+              <sphereGeometry args={[0.04, 8, 8]} />
+              <meshBasicMaterial color="#111111" />
+            </mesh>
+          </>
+        )}
+
+        {/* PENGUIN BEAK */}
+        {petType === "penguin" && (
+          <mesh position={[0, -0.06, 0.53]} rotation={[Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.08, 0.22, 16]} />
+            <meshStandardMaterial color="#fbc531" />
+          </mesh>
+        )}
+
+        {/* FROG MOUTH LINE */}
+        {petType === "frog" && (
+          <mesh position={[0, -0.18, 0.52]} rotation={[0, 0, 0]}>
+            <boxGeometry args={[0.38, 0.02, 0.02]} />
+            <meshBasicMaterial color="#333333" />
+          </mesh>
+        )}
+
+        {/* ELEPHANT TRUNK */}
+        {petType === "elephant" && (
+          <group
+            ref={trunkRef}
+            position={[0, -0.05, 0.52]}
+            rotation={[0.1, 0, 0]}
+          >
+            <mesh position={[0, -0.22, 0.08]} rotation={[-0.4, 0, 0]}>
+              <cylinderGeometry args={[0.08, 0.06, 0.45, 12]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.42, 0.22]} rotation={[-0.8, 0, 0]}>
+              <cylinderGeometry args={[0.06, 0.055, 0.3, 12]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </group>
+        )}
+
+        {/* PIG NOSE */}
+        {petType === "pig" && (
+          <group position={[0, -0.08, 0.54]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.13, 0.13, 0.12, 16]} />
+              <meshStandardMaterial color={accentColor} />
+            </mesh>
+            {/* Nostrils */}
+            <mesh position={[-0.04, 0, 0.07]}>
+              <sphereGeometry args={[0.02, 8, 8]} />
+              <meshBasicMaterial color="#333333" />
+            </mesh>
+            <mesh position={[0.04, 0, 0.07]}>
+              <sphereGeometry args={[0.02, 8, 8]} />
+              <meshBasicMaterial color="#333333" />
+            </mesh>
+          </group>
+        )}
+      </group>
+
+      {/* BIRD WINGS */}
+      {petType === "bird" && (
+        <>
+          <group ref={leftWingRef} position={[-0.8, 0.05, -0.1]}>
+            <mesh position={[-0.26, 0, 0.05]} rotation={[0.08, 0, 0]}>
+              <boxGeometry args={[0.52, 0.06, 0.68]} />
+              <meshStandardMaterial color={currentPetColor} roughness={0.6} />
+            </mesh>
+            <mesh position={[-0.52, -0.03, 0.08]} rotation={[0.1, 0.1, -0.15]}>
+              <boxGeometry args={[0.16, 0.05, 0.26]} />
+              <meshStandardMaterial color={currentPetColor} roughness={0.5} />
+            </mesh>
+          </group>
+          <group ref={rightWingRef} position={[0.8, 0.05, -0.1]}>
+            <mesh position={[0.26, 0, 0.05]} rotation={[0.08, 0, 0]}>
+              <boxGeometry args={[0.52, 0.06, 0.68]} />
+              <meshStandardMaterial color={currentPetColor} roughness={0.6} />
+            </mesh>
+            <mesh position={[0.52, -0.03, 0.08]} rotation={[0.1, -0.1, 0.15]}>
+              <boxGeometry args={[0.16, 0.05, 0.26]} />
+              <meshStandardMaterial color={currentPetColor} roughness={0.5} />
+            </mesh>
+          </group>
+        </>
+      )}
+
+      {/* PENGUIN FLIPPERS */}
+      {petType === "penguin" && (
+        <>
+          <mesh position={[-0.8, 0.08, 0]} rotation={[0, 0, -0.22]}>
+            <boxGeometry args={[0.06, 0.48, 0.2]} />
+            <meshStandardMaterial color={currentPetColor} />
+          </mesh>
+          <mesh position={[0.8, 0.08, 0]} rotation={[0, 0, 0.22]}>
+            <boxGeometry args={[0.06, 0.48, 0.2]} />
+            <meshStandardMaterial color={currentPetColor} />
+          </mesh>
+        </>
+      )}
+
+      <ExtraPetLimbs
+        petType={petType}
+        currentPetColor={currentPetColor}
+        accentColor={accentColor}
+        leftWingRef={leftWingRef}
+        rightWingRef={rightWingRef}
+        tailRef={tailRef}
+      />
+
+      {/* QUADRUPED LIMBS & PAWS (Cat, Dog, Fox, Pig) — Wolf has its own in ExtraPetBody */}
+      {(petType === "cat" ||
+        petType === "dog" ||
+        petType === "fox" ||
+        petType === "pig") && (
+        <>
+          {/* Front Left Leg */}
+          <group position={[-0.32, -0.58, 0.4]}>
+            <mesh>
+              <capsuleGeometry args={[0.085, 0.35, 8, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            {/* Paw */}
+            <mesh position={[0, -0.22, 0.06]} scale={[1.1, 0.7, 1.3]}>
+              <sphereGeometry args={[0.09, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "pig" ? accentColor : currentPetColor}
+              />
+            </mesh>
+          </group>
+          {/* Front Right Leg */}
+          <group position={[0.32, -0.58, 0.4]}>
+            <mesh>
+              <capsuleGeometry args={[0.085, 0.35, 8, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.22, 0.06]} scale={[1.1, 0.7, 1.3]}>
+              <sphereGeometry args={[0.09, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "pig" ? accentColor : currentPetColor}
+              />
+            </mesh>
+          </group>
+          {/* Back Left Leg */}
+          <group position={[-0.34, -0.58, -0.42]}>
+            <mesh>
+              <capsuleGeometry args={[0.085, 0.35, 8, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.22, 0.06]} scale={[1.1, 0.7, 1.3]}>
+              <sphereGeometry args={[0.09, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "pig" ? accentColor : currentPetColor}
+              />
+            </mesh>
+          </group>
+          {/* Back Right Leg */}
+          <group position={[0.34, -0.58, -0.42]}>
+            <mesh>
+              <capsuleGeometry args={[0.085, 0.35, 8, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.22, 0.06]} scale={[1.1, 0.7, 1.3]}>
+              <sphereGeometry args={[0.09, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "pig" ? accentColor : currentPetColor}
+              />
+            </mesh>
+          </group>
+
+          {/* Tail */}
+          {petType === "cat" ? (
+            <group
+              ref={tailRef}
+              position={[0, 0.1, -0.7]}
+              rotation={[-1.1, 0, 0]}
+            >
+              <mesh position={[0, 0.3, 0]}>
+                <cylinderGeometry args={[0.05, 0.06, 0.6, 8]} />
+                <meshStandardMaterial color={currentPetColor} />
+              </mesh>
+              <mesh position={[0, 0.72, 0.12]} rotation={[0.45, 0, 0]}>
+                <cylinderGeometry args={[0.04, 0.05, 0.5, 8]} />
+                <meshStandardMaterial color={currentPetColor} />
+              </mesh>
+              <mesh position={[0, 1.0, 0.3]}>
+                <sphereGeometry args={[0.08, 12, 12]} />
+                <meshStandardMaterial color="white" roughness={1.2} />
+              </mesh>
+            </group>
+          ) : (
+            <group
+              ref={tailRef}
+              position={[0, 0.2, -0.6]}
+              rotation={[-0.6, 0, 0]}
+            >
+              <mesh position={[0, 0.25, 0]}>
+                <cylinderGeometry args={[0.05, 0.05, 0.6, 8]} />
+                <meshStandardMaterial color={currentPetColor} />
+              </mesh>
+              <mesh position={[0, 0.52, 0]}>
+                <sphereGeometry args={[0.06, 8, 8]} />
+                <meshStandardMaterial color="white" />
+              </mesh>
+            </group>
+          )}
+        </>
+      )}
+
+      {/* BEAR / PANDA LIMBS & CUTE PAWS */}
+      {(petType === "bear" || petType === "panda") && (
+        <>
+          {/* Leg Color: Panda uses dark charcoal, Bear uses currentPetColor */}
+          {/* Front Left */}
+          <group position={[-0.35, -0.55, 0.2]}>
+            <mesh>
+              <capsuleGeometry args={[0.13, 0.35, 8, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+            <mesh position={[0, -0.22, 0.04]} scale={[1.2, 0.75, 1.2]}>
+              <sphereGeometry args={[0.12, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+          </group>
+          {/* Front Right */}
+          <group position={[0.35, -0.55, 0.2]}>
+            <mesh>
+              <capsuleGeometry args={[0.13, 0.35, 8, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+            <mesh position={[0, -0.22, 0.04]} scale={[1.2, 0.75, 1.2]}>
+              <sphereGeometry args={[0.12, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+          </group>
+          {/* Back Left */}
+          <group position={[-0.35, -0.55, -0.3]}>
+            <mesh>
+              <capsuleGeometry args={[0.13, 0.35, 8, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+            <mesh position={[0, -0.22, 0.04]} scale={[1.2, 0.75, 1.2]}>
+              <sphereGeometry args={[0.12, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+          </group>
+          {/* Back Right */}
+          <group position={[0.35, -0.55, -0.3]}>
+            <mesh>
+              <capsuleGeometry args={[0.13, 0.35, 8, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+            <mesh position={[0, -0.22, 0.04]} scale={[1.2, 0.75, 1.2]}>
+              <sphereGeometry args={[0.12, 16, 16]} />
+              <meshStandardMaterial
+                color={petType === "panda" ? patchColor : currentPetColor}
+              />
+            </mesh>
+          </group>
+        </>
+      )}
+
+      {/* PENGUIN FEET (orange webbed feet on ground) */}
+      {petType === "penguin" && (
+        <group position={[0, -0.76, 0.18]}>
+          <mesh
+            position={[-0.24, 0, 0]}
+            rotation={[0.08, 0, 0.05]}
+            scale={[1.2, 0.5, 1.5]}
+          >
+            <sphereGeometry args={[0.13, 16, 16]} />
+            <meshStandardMaterial color="#fbc531" roughness={0.5} />
+          </mesh>
+          <mesh
+            position={[0.24, 0, 0]}
+            rotation={[0.08, 0, -0.05]}
+            scale={[1.2, 0.5, 1.5]}
+          >
+            <sphereGeometry args={[0.13, 16, 16]} />
+            <meshStandardMaterial color="#fbc531" roughness={0.5} />
           </mesh>
         </group>
+      )}
 
-        {/* BEAK */}
-        <mesh position={[0, -0.1, 0.6]} rotation={[Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[0.1, 0.25, 16]} />
-          <meshStandardMaterial color="#FFA500" />
-        </mesh>
-      </group>
+      {/* FROG CROUCHED HIND LEGS & WEBBED FEET */}
+      {petType === "frog" && (
+        <>
+          {/* Crouched back legs */}
+          <group position={[0, -0.4, -0.15]}>
+            <mesh
+              position={[-0.52, -0.1, 0.1]}
+              rotation={[0.8, 0.4, -0.4]}
+              scale={[1, 0.6, 0.6]}
+            >
+              <sphereGeometry args={[0.28, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh
+              position={[0.52, -0.1, 0.1]}
+              rotation={[0.8, -0.4, 0.4]}
+              scale={[1, 0.6, 0.6]}
+            >
+              <sphereGeometry args={[0.28, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </group>
+          {/* Front Legs */}
+          <mesh position={[-0.3, -0.55, 0.3]} rotation={[0.15, 0, 0.08]}>
+            <capsuleGeometry args={[0.075, 0.32, 8, 16]} />
+            <meshStandardMaterial color={currentPetColor} />
+          </mesh>
+          <mesh position={[0.3, -0.55, 0.3]} rotation={[0.15, 0, -0.08]}>
+            <capsuleGeometry args={[0.075, 0.32, 8, 16]} />
+            <meshStandardMaterial color={currentPetColor} />
+          </mesh>
+          {/* Webbed feet */}
+          <group position={[0, -0.74, 0.28]}>
+            <mesh
+              position={[-0.3, 0, 0.08]}
+              rotation={[0, 0.15, 0]}
+              scale={[1.4, 0.4, 1.6]}
+            >
+              <sphereGeometry args={[0.11, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh
+              position={[0.3, 0, 0.08]}
+              rotation={[0, -0.15, 0]}
+              scale={[1.4, 0.4, 1.6]}
+            >
+              <sphereGeometry args={[0.11, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </group>
+        </>
+      )}
 
-      {/* Wings & Feet */}
-      <mesh ref={leftWingRef} position={[-0.85, 0.1, 0]}>
-        <boxGeometry args={[0.1, 0.7, 0.4]} />
-        <meshStandardMaterial color={currentBirdColor} />
-      </mesh>
-      <mesh ref={rightWingRef} position={[0.85, 0.1, 0]}>
-        <boxGeometry args={[0.1, 0.7, 0.4]} />
-        <meshStandardMaterial color={currentBirdColor} />
-      </mesh>
-      <group position={[0, -0.8, 0.2]}>
-        <mesh position={[-0.3, 0, 0]}>
-          <boxGeometry args={[0.25, 0.1, 0.35]} />
-          <meshStandardMaterial color="#FFA500" />
-        </mesh>
-        <mesh position={[0.3, 0, 0]}>
-          <boxGeometry args={[0.25, 0.1, 0.35]} />
-          <meshStandardMaterial color="#FFA500" />
-        </mesh>
-      </group>
+      {/* ELEPHANT STUBBY LEGS & WHITE TOENAILS */}
+      {petType === "elephant" && (
+        <>
+          {/* Column limbs */}
+          {/* Front Left */}
+          <group position={[-0.38, -0.55, 0.25]}>
+            <mesh>
+              <capsuleGeometry args={[0.14, 0.42, 8, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.22, 0.03]} scale={[1.15, 0.7, 1.2]}>
+              <sphereGeometry args={[0.13, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            {/* Toenails */}
+            <mesh position={[-0.05, -0.26, 0.12]} scale={[1, 1, 0.5]}>
+              <sphereGeometry args={[0.03, 8, 8]} />
+              <meshStandardMaterial color="white" />
+            </mesh>
+            <mesh position={[0.05, -0.26, 0.12]} scale={[1, 1, 0.5]}>
+              <sphereGeometry args={[0.03, 8, 8]} />
+              <meshStandardMaterial color="white" />
+            </mesh>
+          </group>
+          {/* Front Right */}
+          <group position={[0.38, -0.55, 0.25]}>
+            <mesh>
+              <capsuleGeometry args={[0.14, 0.42, 8, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.22, 0.03]} scale={[1.15, 0.7, 1.2]}>
+              <sphereGeometry args={[0.13, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[-0.05, -0.26, 0.12]} scale={[1, 1, 0.5]}>
+              <sphereGeometry args={[0.03, 8, 8]} />
+              <meshStandardMaterial color="white" />
+            </mesh>
+            <mesh position={[0.05, -0.26, 0.12]} scale={[1, 1, 0.5]}>
+              <sphereGeometry args={[0.03, 8, 8]} />
+              <meshStandardMaterial color="white" />
+            </mesh>
+          </group>
+          {/* Back Left */}
+          <group position={[-0.38, -0.55, -0.3]}>
+            <mesh>
+              <capsuleGeometry args={[0.14, 0.42, 8, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.22, 0.03]} scale={[1.15, 0.7, 1.2]}>
+              <sphereGeometry args={[0.13, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </group>
+          {/* Back Right */}
+          <group position={[0.38, -0.55, -0.3]}>
+            <mesh>
+              <capsuleGeometry args={[0.14, 0.42, 8, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+            <mesh position={[0, -0.22, 0.03]} scale={[1.15, 0.7, 1.2]}>
+              <sphereGeometry args={[0.13, 16, 16]} />
+              <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </group>
+        </>
+      )}
+
+      {/* SHEEP LIMBS & HOOVES */}
+      {petType === "sheep" && (
+        <group>
+          {/* Front Left */}
+          <group position={[-0.3, -0.55, 0.25]}>
+            <mesh>
+              <capsuleGeometry args={[0.065, 0.4, 8, 16]} />
+              <meshStandardMaterial color="#222226" />
+            </mesh>
+            <mesh position={[0, -0.22, 0.01]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.07, 0.07, 0.06, 10]} />
+              <meshStandardMaterial color="#111111" />
+            </mesh>
+          </group>
+          {/* Front Right */}
+          <group position={[0.3, -0.55, 0.25]}>
+            <mesh>
+              <capsuleGeometry args={[0.065, 0.4, 8, 16]} />
+              <meshStandardMaterial color="#222226" />
+            </mesh>
+            <mesh position={[0, -0.22, 0.01]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.07, 0.07, 0.06, 10]} />
+              <meshStandardMaterial color="#111111" />
+            </mesh>
+          </group>
+          {/* Back Left */}
+          <group position={[-0.3, -0.55, -0.25]}>
+            <mesh>
+              <capsuleGeometry args={[0.065, 0.4, 8, 16]} />
+              <meshStandardMaterial color="#222226" />
+            </mesh>
+            <mesh position={[0, -0.22, 0.01]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.07, 0.07, 0.06, 10]} />
+              <meshStandardMaterial color="#111111" />
+            </mesh>
+          </group>
+          {/* Back Right */}
+          <group position={[0.3, -0.55, -0.25]}>
+            <mesh>
+              <capsuleGeometry args={[0.065, 0.4, 8, 16]} />
+              <meshStandardMaterial color="#222226" />
+            </mesh>
+            <mesh position={[0, -0.22, 0.01]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.07, 0.07, 0.06, 10]} />
+              <meshStandardMaterial color="#111111" />
+            </mesh>
+          </group>
+        </group>
+      )}
+
+      {/* ALIEN LEVITATING SPHERES (Sci-fi floating effect) */}
+      {petType === "alien" && (
+        <group position={[0, -0.65, 0]}>
+          <mesh position={[-0.24, -0.12, 0]}>
+            <sphereGeometry args={[0.09, 16, 16]} />
+            <meshStandardMaterial
+              color="#ffff00"
+              emissive="#ffff00"
+              emissiveIntensity={0.6}
+            />
+          </mesh>
+          <mesh position={[0, -0.2, 0.14]}>
+            <sphereGeometry args={[0.11, 16, 16]} />
+            <meshStandardMaterial
+              color="#ffff00"
+              emissive="#ffff00"
+              emissiveIntensity={0.6}
+            />
+          </mesh>
+          <mesh position={[0.24, -0.12, 0]}>
+            <sphereGeometry args={[0.09, 16, 16]} />
+            <meshStandardMaterial
+              color="#ffff00"
+              emissive="#ffff00"
+              emissiveIntensity={0.6}
+            />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 }
 
-export default function PetPage({ username, userId, petName, onPetId, onLogout }) {
+export default function PetPage({
+  username,
+  userId,
+  petName,
+  onPetName,
+  onPetId,
+  onLogout,
+}) {
   const [health, setHealth] = useState(100);
   const [isSyncing, setIsSyncing] = useState(false);
   const [birthDate, setBirthDate] = useState(null);
   const [petId, setPetId] = useState(null);
+  const [petType, setPetType] = useState(null);
+  const [themeIndex, setThemeIndex] = useState(null);
+  const [petColor, setPetColor] = useState(null);
+  const [petColorSick, setPetColorSick] = useState(null);
   const [age, setAge] = useState({ y: 0, m: 0, d: 0, h: 0, i: 0, s: 0 });
   const [isDead, setIsDead] = useState(false);
   const [distractions, setDistractions] = useState([]);
@@ -230,6 +1474,15 @@ export default function PetPage({ username, userId, petName, onPetId, onLogout }
         const pet = await response.json();
         setPetId(pet.id);
         if (onPetId) onPetId(pet.id);
+        // Set pet appearance from DB (permanent, unique per pet)
+        setPetType(pet.pet_type || "bird");
+        setThemeIndex(
+          pet.theme_index !== undefined && pet.theme_index !== null
+            ? pet.theme_index
+            : 0,
+        );
+        setPetColor(pet.pet_color || null);
+        setPetColorSick(pet.pet_color_sick || null);
         const birthStr = pet.birth_date.endsWith("Z")
           ? pet.birth_date
           : pet.birth_date + "Z";
@@ -289,29 +1542,32 @@ export default function PetPage({ username, userId, petName, onPetId, onLogout }
   useEffect(() => {
     if (isDead || health <= 0 || !petId) return;
 
-    const decayInterval = setInterval(async () => {
-      const nextHealth = Math.max(0, health - 1);
-      
-      // Update local visual state
-      setHealth(nextHealth);
+    const decayInterval = setInterval(
+      async () => {
+        const nextHealth = Math.max(0, health - 1);
 
-      // Persist directly to the SQLite database
-      try {
-        await fetch(`${API_BASE}/api/pets/${petId}/health`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ health: nextHealth }),
-        });
+        // Update local visual state
+        setHealth(nextHealth);
 
-        if (nextHealth <= 0) {
-          setIsDead(true);
+        // Persist directly to the SQLite database
+        try {
+          await fetch(`${API_BASE}/api/pets/${petId}/health`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ health: nextHealth }),
+          });
+
+          if (nextHealth <= 0) {
+            setIsDead(true);
+          }
+        } catch (error) {
+          console.error("Error persisting health decay to backend DB:", error);
         }
-      } catch (error) {
-        console.error("Error persisting health decay to backend DB:", error);
-      }
-    }, 10 * 60 * 1000); // lose 1 hp every 10 minutes
+      },
+      10 * 60 * 1000,
+    ); // lose 1 hp every 10 minutes
 
     return () => clearInterval(decayInterval);
   }, [isDead, health, petId]);
@@ -320,11 +1576,15 @@ export default function PetPage({ username, userId, petName, onPetId, onLogout }
   useEffect(() => {
     if (isDead) {
       setTimeout(() => {
-        alert(`${petName} has passed away from neglect... 💀\nMake more commits to keep your next pet alive!`);
+        alert(
+          `${petName} has passed away from neglect... 💀\nMake more commits to keep your next pet alive!`,
+        );
+        if (onPetName) onPetName(null);
+        if (onPetId) onPetId(null);
         navigate("/name");
       }, 500);
     }
-  }, [isDead]);
+  }, [isDead, petName, onPetName, onPetId, navigate]);
 
   // Age timer — only runs once birthDate is loaded from the server
   useEffect(() => {
@@ -333,10 +1593,14 @@ export default function PetPage({ username, userId, petName, onPetId, onLogout }
     const computeAge = () => {
       const now = new Date();
       let diff = Math.max(0, Math.floor((now - birthDate) / 1000));
-      const y = Math.floor(diff / 31536000); diff %= 31536000;
-      const m = Math.floor(diff / 2592000);  diff %= 2592000;
-      const d = Math.floor(diff / 86400);    diff %= 86400;
-      const h = Math.floor(diff / 3600);     diff %= 3600;
+      const y = Math.floor(diff / 31536000);
+      diff %= 31536000;
+      const m = Math.floor(diff / 2592000);
+      diff %= 2592000;
+      const d = Math.floor(diff / 86400);
+      diff %= 86400;
+      const h = Math.floor(diff / 3600);
+      diff %= 3600;
       const i = Math.floor(diff / 60);
       const s = diff % 60;
       setAge({ y, m, d, h, i, s });
@@ -552,10 +1816,19 @@ export default function PetPage({ username, userId, petName, onPetId, onLogout }
             letterSpacing: "1px",
           }}
         >
-          @{username}
+          @{username} •{" "}
+          <span
+            style={{
+              color: petColor || resolvePetColors({ themeIndex }).base,
+              fontWeight: 600,
+            }}
+          >
+            {petType
+              ? formatPetAppearance(petType, themeIndex, petColor, petColorSick)
+              : ""}
+          </span>
         </p>
       </div>
-
 
       {/* Top Right — Nav + Health Card */}
       <div
@@ -950,7 +2223,14 @@ export default function PetPage({ username, userId, petName, onPetId, onLogout }
         <ambientLight intensity={1.5} />
         <pointLight position={[10, 10, 10]} intensity={1} />
         <Environment preset="city" />
-        <PetModel isSyncing={isSyncing} health={health} />
+        <PetModel
+          isSyncing={isSyncing}
+          health={health}
+          petType={petType}
+          themeIndex={themeIndex}
+          petColor={petColor}
+          petColorSick={petColorSick}
+        />
         <ContactShadows
           position={[0, -1.2, 0]}
           opacity={0.5}

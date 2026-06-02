@@ -1,0 +1,40 @@
+{
+  "species": [
+    "bird",
+    "bunny",
+    "cat",
+    "dog",
+    "fox",
+    "bear",
+    "panda",
+    "penguin",
+    "frog",
+    "elephant",
+    "pig",
+    "sheep",
+    "alien",
+    "hamster",
+    "duck",
+    "chick",
+    "seal",
+    "wolf",
+    "snake",
+    "dragon",
+    "scorpion"
+  ],
+  "themes": [
+    { "base": "#ff4d4d", "sick": "#bd7575", "name": "Crimson Red" },
+    { "base": "#3b82f6", "sick": "#759cbd", "name": "Royal Blue" },
+    { "base": "#10b981", "sick": "#75bd9c", "name": "Emerald Green" },
+    { "base": "#f59e0b", "sick": "#bda275", "name": "Golden Amber" },
+    { "base": "#8b5cf6", "sick": "#9581bd", "name": "Mystic Purple" },
+    { "base": "#ec4899", "sick": "#bd81a5", "name": "Coral Pink" },
+    { "base": "#06b6d4", "sick": "#81b1bd", "name": "Neon Cyan" },
+    { "base": "#e056fd", "sick": "#b881bd", "name": "Electric Orchid" },
+    { "base": "#22d3ee", "sick": "#81c5ce", "name": "Arctic Blue" },
+    { "base": "#84cc16", "sick": "#9ab874", "name": "Lime Spark" },
+    { "base": "#f43f5e", "sick": "#c08090", "name": "Rose Flame" },
+    { "base": "#fb923c", "sick": "#c09878", "name": "Sunset Orange" },
+    { "base": "#a3e635", "sick": "#8faa6a", "name": "Cosmic Lime" }
+  ]
+}

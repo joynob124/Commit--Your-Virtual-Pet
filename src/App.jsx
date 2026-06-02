@@ -77,6 +77,12 @@ export default function App() {
                   userId={userId}
                   onName={setPetName}
                   onPetId={setPetId}
+                  onLogout={() => {
+                    setUser(null);
+                    setUserId(null);
+                    setPetName(null);
+                    setPetId(null);
+                  }}
                 />
           }
         />
@@ -85,12 +91,19 @@ export default function App() {
           element={
             !user || !petName
               ? <Navigate to="/" replace />
-              : <PetPage username={user.username} userId={userId} petName={petName} onPetId={setPetId} onLogout={() => {
-                  setUser(null);
-                  setUserId(null);
-                  setPetName(null);
-                  setPetId(null);
-                }} />
+              : <PetPage
+                  username={user.username}
+                  userId={userId}
+                  petName={petName}
+                  onPetName={setPetName}
+                  onPetId={setPetId}
+                  onLogout={() => {
+                    setUser(null);
+                    setUserId(null);
+                    setPetName(null);
+                    setPetId(null);
+                  }}
+                />
           }
         />
         <Route

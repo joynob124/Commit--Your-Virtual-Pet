@@ -86,6 +86,61 @@ const PORT = 3001;
 // Health decay rate: 2 health points lost per hour
 const HEALTH_DECAY_PER_HOUR = 2;
 
+// Species & color themes — keep in sync with src/constants/petCatalog.json
+const petCatalog = require('./src/constants/petCatalog.json');
+const PET_TYPES_LIST = petCatalog.species;
+const PET_THEMES_LIST = petCatalog.themes;
+
+function hslToHex(h, s, l) {
+  s /= 100;
+  l /= 100;
+  const chroma = (1 - Math.abs(2 * l - 1)) * s;
+  const x = chroma * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - chroma / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = chroma; g = x; }
+  else if (h < 120) { r = x; g = chroma; }
+  else if (h < 180) { g = chroma; b = x; }
+  else if (h < 240) { g = x; b = chroma; }
+  else if (h < 300) { r = x; b = chroma; }
+  else { r = chroma; b = x; }
+  const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function generateRandomColors() {
+  const hue = Math.floor(Math.random() * 360);
+  const saturation = 58 + Math.floor(Math.random() * 32);
+  const lightness = 48 + Math.floor(Math.random() * 18);
+  return {
+    base: hslToHex(hue, saturation, lightness),
+    sick: hslToHex(hue, Math.max(22, saturation - 28), Math.max(30, lightness - 20)),
+  };
+}
+
+function pickRandomAppearance() {
+  const colors = generateRandomColors();
+  return {
+    petType: PET_TYPES_LIST[Math.floor(Math.random() * PET_TYPES_LIST.length)],
+    themeIndex: Math.floor(Math.random() * PET_THEMES_LIST.length),
+    petColor: colors.base,
+    petColorSick: colors.sick,
+  };
+}
+
+function ensurePetColors(pet, callback) {
+  if (pet.pet_color) return callback(pet);
+  const colors = generateRandomColors();
+  db.run(
+    'UPDATE pets SET pet_color = ?, pet_color_sick = ? WHERE id = ?',
+    [colors.base, colors.sick, pet.id],
+    (err) => {
+      if (err) console.error('Error assigning pet colors:', err.message);
+      callback({ ...pet, pet_color: colors.base, pet_color_sick: colors.sick });
+    }
+  );
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -124,6 +179,8 @@ function initializeDatabase() {
       last_health_update DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_github_event_id TEXT,
       is_alive INTEGER DEFAULT 1,
+      pet_type TEXT DEFAULT 'bird',
+      theme_index INTEGER DEFAULT 0,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )`, (err) => {
       if (err) console.error('Error creating pets table:', err.message);
@@ -172,6 +229,28 @@ function initializeDatabase() {
     db.run(`ALTER TABLE pets ADD COLUMN last_github_event_id TEXT`, (err) => {
       if (err && !err.message.includes('duplicate column')) {
         console.error('Migration error (last_github_event_id):', err.message);
+      }
+    });
+
+    // Migration: add pet_type and theme_index columns if not exists
+    db.run(`ALTER TABLE pets ADD COLUMN pet_type TEXT DEFAULT 'bird'`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('Migration error (pet_type):', err.message);
+      }
+    });
+    db.run(`ALTER TABLE pets ADD COLUMN theme_index INTEGER DEFAULT 0`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('Migration error (theme_index):', err.message);
+      }
+    });
+    db.run(`ALTER TABLE pets ADD COLUMN pet_color TEXT`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('Migration error (pet_color):', err.message);
+      }
+    });
+    db.run(`ALTER TABLE pets ADD COLUMN pet_color_sick TEXT`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('Migration error (pet_color_sick):', err.message);
       }
     });
   });
@@ -274,34 +353,54 @@ app.post('/api/pets', (req, res) => {
     return res.status(400).json({ error: 'User ID and pet name are required' });
   }
 
-  // Get generation number for this user
-  db.get(
-    'SELECT COUNT(*) as count FROM fossils WHERE user_id = ?',
-    [userId],
-    (err, result) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
-
-      const generation = (result.count || 0) + 1;
-
-      db.run(
-        'INSERT INTO pets (user_id, name, health, birth_date, last_health_update, is_alive) VALUES (?, ?, 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)',
-        [userId, name],
-        function(err) {
-          if (err) {
-            return res.status(500).json({ error: 'Database error' });
-          }
-          res.json({
-            success: true,
-            petId: this.lastID,
-            name: name,
-            generation: generation
-          });
-        }
-      );
+  // Verify the user exists first (prevents Foreign Key violations on database reset)
+  db.get('SELECT id FROM users WHERE id = ?', [userId], (err, userRow) => {
+    if (err) {
+      console.error('Verify user error:', err);
+      return res.status(500).json({ error: 'Database error' });
     }
-  );
+
+    if (!userRow) {
+      return res.status(401).json({ error: 'User session invalid. Please log out and register again.' });
+    }
+
+    // Get generation number for this user
+    db.get(
+      'SELECT COUNT(*) as count FROM fossils WHERE user_id = ?',
+      [userId],
+      (err, result) => {
+        if (err) {
+          console.error('Fossils select error:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+
+        const generation = (result?.count || 0) + 1;
+
+        const appearance = pickRandomAppearance();
+
+        db.run(
+          'INSERT INTO pets (user_id, name, health, birth_date, last_health_update, is_alive, pet_type, theme_index, pet_color, pet_color_sick) VALUES (?, ?, 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, ?, ?, ?, ?)',
+          [userId, name, appearance.petType, appearance.themeIndex, appearance.petColor, appearance.petColorSick],
+          function(err) {
+            if (err) {
+              console.error('Pets insert error:', err);
+              return res.status(500).json({ error: 'Database error' });
+            }
+            res.json({
+              success: true,
+              petId: this.lastID,
+              name: name,
+              generation: generation,
+              petType: appearance.petType,
+              themeIndex: appearance.themeIndex,
+              petColor: appearance.petColor,
+              petColorSick: appearance.petColorSick,
+            });
+          }
+        );
+      }
+    );
+  });
 });
 
 // Helper: kill a pet and create a fossil record
@@ -342,6 +441,10 @@ app.get('/api/pets/:userId', (req, res) => {
       const secondsPassed = (now - lastUpdate) / 1000;
       const decay = Math.floor(secondsPassed / 600); // lose 1 health point every 10 minutes
 
+      const respond = (petRow) => {
+        ensurePetColors(petRow, (withColors) => res.json(withColors));
+      };
+
       if (decay > 0) {
         const newHealth = Math.max(0, pet.health - decay);
 
@@ -355,15 +458,15 @@ app.get('/api/pets/:userId', (req, res) => {
             // Pet died from neglect
             if (newHealth <= 0) {
               killPet(pet, 'Neglected — health decayed to zero', () => {
-                return res.json({ ...pet, health: 0, is_alive: 0 });
+                respond({ ...pet, health: 0, is_alive: 0 });
               });
             } else {
-              res.json({ ...pet, health: newHealth, last_health_update: new Date().toISOString() });
+              respond({ ...pet, health: newHealth, last_health_update: new Date().toISOString() });
             }
           }
         );
       } else {
-        res.json(pet);
+        respond(pet);
       }
     }
   );
