@@ -228,8 +228,66 @@ Commit/
 | Refresh on `/distractions` sends you home | Hard refresh after pulling latest code; session is restored from localStorage. |
 | GitHub sync fails | Your app username must match your public GitHub username. |
 
+## Turso Database & Vercel Deployment
+
+This application supports both a local SQLite setup and a production-ready cloud deployment using **Turso** (distributed SQLite) and **Vercel** (serverless deployment).
+
+### 1. Set Up a Turso Database
+
+Turso is a distributed SQLite-compatible database built on libSQL.
+
+1. Install the Turso CLI and log in:
+   ```bash
+   curl -sSf.install.turso.io | sh
+   turso auth login
+   ```
+2. Create a new database:
+   ```bash
+   turso db create commit-my-pet
+   ```
+3. Get the database URL:
+   ```bash
+   turso db show commit-my-pet --url
+   ```
+4. Generate a database authentication token:
+   ```bash
+   turso db tokens create commit-my-pet
+   ```
+
+### 2. Deploy to Vercel
+
+The application is configured with `vercel.json` to deploy both the frontend Vite assets and the backend Express serverless function:
+
+1. Install the Vercel CLI:
+   ```bash
+   npm install -g vercel
+   ```
+2. Deploy the project:
+   ```bash
+   vercel
+   ```
+3. Set the environment variables in your Vercel Project Settings:
+   - `TURSO_DATABASE_URL` (the database URL from step 1.3, starting with `libsql://`)
+   - `TURSO_AUTH_TOKEN` (the generated token from step 1.4)
+4. Redeploy to production:
+   ```bash
+   vercel --prod
+   ```
+
+### 3. Update the Browser Extension
+
+For the Chrome browser extension to communicate with your live Vercel deployment:
+1. Open [browser-extension/background.js](file:///d:/Nafis/Commit/browser-extension/background.js) and [browser-extension/popup.js](file:///d:/Nafis/Commit/browser-extension/popup.js).
+2. Change the `API_BASE` constant:
+   ```javascript
+   // Replace http://localhost:3001 with your deployed Vercel URL
+   const API_BASE = "https://your-vercel-deployment-url.vercel.app";
+   ```
+3. Open `chrome://extensions`, click **Reload** on the extension to apply the changes.
+
 ---
 
 ## License
 
 Academic project — Notre Dame University Bangladesh, Web Engineering.
+

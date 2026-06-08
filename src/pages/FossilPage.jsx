@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Skull, Calendar, Heart, GitCommit } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 export default function FossilPage({ username, userId, petName, onLogout }) {
   const navigate = useNavigate();
   const [hoveredId, setHoveredId] = useState(null);
@@ -10,7 +12,7 @@ export default function FossilPage({ username, userId, petName, onLogout }) {
   useEffect(() => {
     const fetchFossils = async () => {
       try {
-        const response = await fetch(`http://localhost:3001/api/fossils/${userId}`);
+        const response = await fetch(`${API_BASE}/api/fossils/${userId}`);
         if (response.ok) {
           const data = await response.json();
           setFossils(data);

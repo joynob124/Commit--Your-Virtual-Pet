@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Trophy, Calendar, Heart, RefreshCw } from "lucide-react";
 import { formatPetAppearance } from "../constants/petCatalog";
 
-const API_BASE = "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 export default function LeaderboardPage({
   username,

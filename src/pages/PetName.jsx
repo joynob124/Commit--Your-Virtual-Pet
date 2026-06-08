@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatPetAppearance, PET_SPECIES } from '../constants/petCatalog';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 export default function PetName({ username, userId, onName, onPetId, onLogout }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,7 +15,7 @@ export default function PetName({ username, userId, onName, onPetId, onLogout })
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/pets', {
+      const response = await fetch(`${API_BASE}/api/pets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

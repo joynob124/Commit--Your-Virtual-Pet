@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { getSiteMeta } from '../constants/socialSites';
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 const POLL_MS = 10_000;
 
 export default function DistractionPage({ username, userId, petId, petName, onPetId, onLogout }) {

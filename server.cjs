@@ -1,13 +1,52 @@
 const express = require("express");
-const { DatabaseSync } = require("node:sqlite");
+const { createClient } = require("@libsql/client");
 
 class ShimDatabase {
   constructor(dbPath, callback) {
     try {
-      this.db = new DatabaseSync(dbPath);
-      if (callback) process.nextTick(() => callback(null));
+      let url;
+      if (process.env.TURSO_DATABASE_URL) {
+        // Production: use Turso cloud database
+        url = process.env.TURSO_DATABASE_URL;
+      } else if (process.env.VERCEL) {
+        // Vercel without Turso: use /tmp (only writable dir on Vercel)
+        url = 'file:/tmp/database.sqlite';
+      } else {
+        // Local development: use local file
+        url = `file:${dbPath}`;
+      }
+
+      const authToken = process.env.TURSO_AUTH_TOKEN || "";
+
+      console.log(`[Database] Connecting to: ${url}`);
+      this.client = createClient({
+        url: url,
+        authToken: authToken,
+      });
+
+      if (callback) {
+        process.nextTick(() => callback(null));
+      }
     } catch (err) {
-      if (callback) process.nextTick(() => callback(err));
+      console.error("[Database] Initialization error:", err);
+      if (callback) {
+        process.nextTick(() => callback(err));
+      }
+    }
+  }
+      this.client = createClient({
+        url: url,
+        authToken: authToken,
+      });
+      
+      if (callback) {
+        process.nextTick(() => callback(null));
+      }
+    } catch (err) {
+      console.error("[Database] Initialization error:", err);
+      if (callback) {
+        process.nextTick(() => callback(err));
+      }
     }
   }
 
@@ -21,19 +60,22 @@ class ShimDatabase {
       params = [];
     }
     params = params || [];
-    try {
-      const stmt = this.db.prepare(sql);
-      const result = stmt.run(...params);
-      if (callback) {
-        const context = {
-          lastID: result.lastInsertRowid,
-          changes: result.changes,
-        };
-        process.nextTick(() => callback.call(context, null));
-      }
-    } catch (err) {
-      if (callback) process.nextTick(() => callback(err));
-    }
+    
+    this.client.execute({ sql, args: params })
+      .then((res) => {
+        if (callback) {
+          const lastID = res.lastInsertRowid !== undefined ? Number(res.lastInsertRowid) : undefined;
+          const context = {
+            lastID: lastID,
+            changes: res.rowsAffected,
+          };
+          callback.call(context, null);
+        }
+      })
+      .catch((err) => {
+        console.error(`[Database] Run error: ${err.message} | SQL: ${sql} | Params:`, params);
+        if (callback) callback(err);
+      });
     return this;
   }
 
@@ -43,13 +85,18 @@ class ShimDatabase {
       params = [];
     }
     params = params || [];
-    try {
-      const stmt = this.db.prepare(sql);
-      const row = stmt.get(...params);
-      if (callback) process.nextTick(() => callback(null, row));
-    } catch (err) {
-      if (callback) process.nextTick(() => callback(err));
-    }
+    
+    this.client.execute({ sql, args: params })
+      .then((res) => {
+        if (callback) {
+          const row = res.rows[0] ? { ...res.rows[0] } : undefined;
+          callback(null, row);
+        }
+      })
+      .catch((err) => {
+        console.error(`[Database] Get error: ${err.message} | SQL: ${sql} | Params:`, params);
+        if (callback) callback(err);
+      });
     return this;
   }
 
@@ -59,13 +106,18 @@ class ShimDatabase {
       params = [];
     }
     params = params || [];
-    try {
-      const stmt = this.db.prepare(sql);
-      const rows = stmt.all(...params);
-      if (callback) process.nextTick(() => callback(null, rows));
-    } catch (err) {
-      if (callback) process.nextTick(() => callback(err));
-    }
+    
+    this.client.execute({ sql, args: params })
+      .then((res) => {
+        if (callback) {
+          const rows = res.rows.map(row => ({ ...row }));
+          callback(null, rows);
+        }
+      })
+      .catch((err) => {
+        console.error(`[Database] All error: ${err.message} | SQL: ${sql} | Params:`, params);
+        if (callback) callback(err);
+      });
     return this;
   }
 }
@@ -831,6 +883,10 @@ app.get("/api/leaderboard", (req, res) => {
   );
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

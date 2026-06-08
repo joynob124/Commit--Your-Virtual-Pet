@@ -19,7 +19,7 @@ import {
   isExtraPet,
 } from "../pets/extraPetMeshes";
 
-const API_BASE = "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 const HEALTH_POLL_MS = 10_000;
 
 function detectNewPenalties(prevLog, nextLog) {

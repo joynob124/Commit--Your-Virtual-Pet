@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, ArrowRight } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -15,7 +17,7 @@ export default function Login({ onLogin }) {
     setLoading(true);
 
     try {
-      const endpoint = isRegister ? 'http://localhost:3001/api/register' : 'http://localhost:3001/api/login';
+      const endpoint = isRegister ? `${API_BASE}/api/register` : `${API_BASE}/api/login`;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
