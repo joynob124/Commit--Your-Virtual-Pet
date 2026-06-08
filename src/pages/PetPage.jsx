@@ -33,6 +33,7 @@ function detectNewPenalties(prevLog, nextLog) {
       toasts.push({
         id: `${item.site}-${item.total_penalty}-${Date.now()}`,
         text: `${meta.label}: −${delta} HP (${item.total_minutes} min today)`,
+        type: "penalty",
       });
     }
   }
@@ -506,16 +507,35 @@ function PetModel({
         </>
       )}
 
-      {/* ALIEN — vertical body, high-tech chest plate */}
+      {/* ALIEN — sci-fi tapered body with glowing power core */}
       {petType === "alien" && (
         <>
-          <mesh position={[0, -0.15, 0]}>
-            <cylinderGeometry args={[0.42, 0.42, 1.1, 32]} />
-            <meshStandardMaterial color={currentPetColor} roughness={0.8} />
+          <mesh position={[0, -0.22, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <capsuleGeometry args={[0.38, 0.6, 8, 32]} />
+            <meshStandardMaterial
+              color={currentPetColor}
+              roughness={0.72}
+              metalness={0.08}
+            />
           </mesh>
-          <mesh position={[0, -0.1, 0.32]}>
-            <sphereGeometry args={[0.34, 32, 32]} />
-            <meshStandardMaterial color="#ff7675" roughness={1} />
+          {/* Glowing power core */}
+          <mesh position={[0, -0.08, 0.3]}>
+            <sphereGeometry args={[0.18, 32, 32]} />
+            <meshStandardMaterial
+              color="#00ffff"
+              emissive="#00ffff"
+              emissiveIntensity={1.0}
+              roughness={0.05}
+            />
+          </mesh>
+          {/* Core ring */}
+          <mesh position={[0, -0.08, 0.3]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.24, 0.025, 8, 32]} />
+            <meshStandardMaterial
+              color="#00ffff"
+              emissive="#00ffff"
+              emissiveIntensity={0.8}
+            />
           </mesh>
         </>
       )}
@@ -534,25 +554,27 @@ function PetModel({
         position={[
           0,
           getExtraPetHeadLayout(petType)?.y ??
-            (petType === "cat" ||
-            petType === "dog" ||
-            petType === "fox" ||
-            petType === "pig" ||
-            petType === "wolf"
-              ? 0.55
-              : petType === "bunny"
-                ? 1.05
-                : petType === "alien"
-                  ? 0.85
-                  : 0.7),
+            (petType === "cat"
+              ? 0.58
+              : petType === "dog" ||
+                  petType === "fox" ||
+                  petType === "pig" ||
+                  petType === "wolf"
+                ? 0.55
+                : petType === "bunny"
+                  ? 1.05
+                  : petType === "alien"
+                    ? 0.85
+                    : 0.7),
           getExtraPetHeadLayout(petType)?.z ??
-            (petType === "cat" ||
-            petType === "dog" ||
-            petType === "fox" ||
-            petType === "pig" ||
-            petType === "wolf"
-              ? 0.55
-              : 0.2),
+            (petType === "cat"
+              ? 0.7
+              : petType === "dog" ||
+                  petType === "fox" ||
+                  petType === "pig" ||
+                  petType === "wolf"
+                ? 0.55
+                : 0.2),
         ]}
       >
         {/* Head Base - Panda uses currentPetColor (NOT hardcoded white) */}
@@ -702,6 +724,20 @@ function PetModel({
             <mesh position={[0.58, 0.08, 0.05]} rotation={[0, -0.2, 0.08]}>
               <boxGeometry args={[0.08, 0.62, 0.52]} />
               <meshStandardMaterial color={currentPetColor} />
+            </mesh>
+          </>
+        )}
+
+        {/* SHEEP FLOPPY EARS */}
+        {petType === "sheep" && (
+          <>
+            <mesh position={[-0.38, 0.15, -0.15]} rotation={[0.2, 0, 0.65]}>
+              <capsuleGeometry args={[0.07, 0.28, 8, 12]} />
+              <meshStandardMaterial color={woolColor} roughness={0.9} />
+            </mesh>
+            <mesh position={[0.38, 0.15, -0.15]} rotation={[0.2, 0, -0.65]}>
+              <capsuleGeometry args={[0.07, 0.28, 8, 12]} />
+              <meshStandardMaterial color={woolColor} roughness={0.9} />
             </mesh>
           </>
         )}
@@ -972,6 +1008,20 @@ function PetModel({
               <meshBasicMaterial color="#333333" />
             </mesh>
           </group>
+        )}
+
+        {/* SHEEP SNOUT */}
+        {petType === "sheep" && (
+          <>
+            <mesh position={[0, -0.06, 0.5]}>
+              <sphereGeometry args={[0.1, 16, 16]} />
+              <meshStandardMaterial color="#ffc0cb" roughness={1} />
+            </mesh>
+            <mesh position={[0, -0.04, 0.58]}>
+              <sphereGeometry args={[0.03, 8, 8]} />
+              <meshStandardMaterial color="#2d1a1a" roughness={0.8} />
+            </mesh>
+          </>
         )}
       </group>
 
@@ -1437,9 +1487,22 @@ export default function PetPage({
   const [distractions, setDistractions] = useState([]);
   const [distractionsLoading, setDistractionsLoading] = useState(true);
   const [toasts, setToasts] = useState([]);
+  const [shakeHealth, setShakeHealth] = useState(false);
 
   const prevLogRef = useRef(null);
   const navigate = useNavigate();
+
+  const addToast = (text, type = "info") => {
+    const id = `${type}-${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, text, type }]);
+    if (type === "penalty") {
+      setShakeHealth(true);
+      setTimeout(() => setShakeHealth(false), 500);
+    }
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  };
 
   const fetchDistractions = useCallback(async (id, { silent = false } = {}) => {
     if (!id) return;
@@ -1572,12 +1635,13 @@ export default function PetPage({
     return () => clearInterval(decayInterval);
   }, [isDead, health, petId]);
 
-  // Handle pet death — show alert and navigate away
+  // Handle pet death — show toast and navigate away
   useEffect(() => {
     if (isDead) {
       setTimeout(() => {
-        alert(
-          `${petName} has passed away from neglect... 💀\nMake more commits to keep your next pet alive!`,
+        addToast(
+          `${petName} has passed away from neglect... 💀 Make more commits to keep your next pet alive!`,
+          "warning",
         );
         if (onPetName) onPetName(null);
         if (onPetId) onPetId(null);
@@ -1633,16 +1697,16 @@ export default function PetPage({
       if (response.ok) {
         if (data.healed) {
           setHealth(data.health);
-          alert(data.message);
+          addToast(data.message, "heal");
         } else {
-          alert(data.message);
+          addToast(data.message, "info");
         }
       } else {
-        alert(data.error || "Failed to sync GitHub commits");
+        addToast(data.error || "Failed to sync GitHub commits", "warning");
       }
     } catch (error) {
       console.error("Error syncing GitHub:", error);
-      alert("Failed to connect to server");
+      addToast("Failed to connect to server", "warning");
     }
 
     await fetchPetData();
@@ -1707,47 +1771,118 @@ export default function PetPage({
           from { opacity: 0; transform: translateX(20px); }
           to { opacity: 1; transform: translateX(0); }
         }
-        .penalty-toast {
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+          20%, 40%, 60%, 80% { transform: translateX(4px); }
+        }
+        .toast {
           animation: toastIn 0.35s ease forwards;
+        }
+        .shake {
+          animation: shake 0.5s ease;
+        }
+        @keyframes pulseCritical {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
+        }
+        .critical-banner {
+          animation: pulseCritical 2s ease-in-out infinite;
         }
       `}</style>
 
-      {/* Distraction penalty toasts */}
+      {/* Critical health banner */}
+      {health < 35 && health > 0 && (
+        <div
+          className="critical-banner"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 25,
+            background: "rgba(220,38,38,0.95)",
+            color: "#fecaca",
+            padding: "12px 24px",
+            textAlign: "center",
+            fontSize: "0.9rem",
+            fontWeight: 600,
+            letterSpacing: "1px",
+            backdropFilter: "blur(8px)",
+            borderBottom: "2px solid rgba(248,113,113,0.6)",
+          }}
+        >
+          ⚠️ CRITICAL: {petName}'s health is critically low! Make commits
+          immediately!
+        </div>
+      )}
+
+      {/* Toast notifications */}
       <div
         style={{
           position: "absolute",
-          top: 88,
+          bottom: 24,
           right: 24,
-          zIndex: 20,
+          zIndex: 30,
           display: "flex",
           flexDirection: "column",
-          gap: 8,
-          maxWidth: 320,
+          gap: 10,
+          maxWidth: 340,
           pointerEvents: "none",
         }}
       >
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className="penalty-toast"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "12px 16px",
-              background: "rgba(127,29,29,0.9)",
-              border: "1px solid rgba(248,113,113,0.45)",
-              borderRadius: 12,
-              backdropFilter: "blur(12px)",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-              fontSize: "0.82rem",
-              color: "#fecaca",
-            }}
-          >
-            <AlertTriangle size={16} color="#f87171" />
-            <span>{toast.text}</span>
-          </div>
-        ))}
+        {toasts.map((toast) => {
+          const toastStyles = {
+            penalty: {
+              background: "rgba(30, 30, 30, 0.95)",
+              border: "1px solid rgba(239, 68, 68, 0.6)",
+              color: "#fca5a5",
+              icon: <AlertTriangle size={18} color="#ef4444" />,
+            },
+            heal: {
+              background: "rgba(30, 30, 30, 0.95)",
+              border: "1px solid rgba(34, 197, 94, 0.6)",
+              color: "#86efac",
+              icon: <span style={{ fontSize: "18px" }}>💚</span>,
+            },
+            info: {
+              background: "rgba(30, 30, 30, 0.95)",
+              border: "1px solid rgba(59, 130, 246, 0.6)",
+              color: "#93c5fd",
+              icon: <span style={{ fontSize: "18px" }}>ℹ️</span>,
+            },
+            warning: {
+              background: "rgba(30, 30, 30, 0.95)",
+              border: "1px solid rgba(234, 179, 8, 0.6)",
+              color: "#fde047",
+              icon: <span style={{ fontSize: "18px" }}>⚠️</span>,
+            },
+          };
+          const style = toastStyles[toast.type] || toastStyles.info;
+          return (
+            <div
+              key={toast.id}
+              className="toast"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "14px 18px",
+                background: style.background,
+                border: style.border,
+                borderRadius: 8,
+                backdropFilter: "blur(16px)",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+                fontSize: "0.85rem",
+                color: style.color,
+                fontWeight: 500,
+              }}
+            >
+              {style.icon}
+              <span style={{ flex: 1 }}>{toast.text}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Background glow */}
@@ -1845,12 +1980,22 @@ export default function PetPage({
         }}
       >
         {/* Nav buttons */}
-        <div style={{ display: "flex", gap: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
           <button className="nav-btn" onClick={() => navigate("/distractions")}>
             🚫 Distractions
           </button>
           <button className="nav-btn" onClick={() => navigate("/fossils")}>
             Fossil Record
+          </button>
+          <button className="nav-btn" onClick={() => navigate("/leaderboard")}>
+            🏆 Leaderboard
           </button>
           <button className="nav-btn" onClick={onLogout}>
             Logout
@@ -1859,6 +2004,7 @@ export default function PetPage({
 
         {/* Health Card */}
         <div
+          className={shakeHealth ? "shake" : ""}
           style={{
             background: "rgba(15,10,30,0.75)",
             padding: "20px 24px",

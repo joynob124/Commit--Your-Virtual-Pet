@@ -5,6 +5,7 @@ import PetName from './pages/PetName';
 import PetPage from './pages/PetPage';
 import FossilPage from './pages/FossilPage';
 import DistractionPage from './pages/DistractionPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import './App.css';
 
 function readStoredSession() {
@@ -130,6 +131,24 @@ export default function App() {
                   petId={petId}
                   petName={petName}
                   onPetId={setPetId}
+                  onLogout={() => {
+                    setUser(null);
+                    setUserId(null);
+                    setPetName(null);
+                    setPetId(null);
+                  }}
+                />
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            !user || !petName
+              ? <Navigate to="/" replace />
+              : <LeaderboardPage
+                  username={user.username}
+                  userId={userId}
+                  petName={petName}
                   onLogout={() => {
                     setUser(null);
                     setUserId(null);

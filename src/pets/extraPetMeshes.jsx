@@ -348,24 +348,7 @@ export function ExtraPetBody({
             emissiveIntensity={0.12}
           />
         </mesh>
-        {/* Tail — segmented */}
-        <mesh position={[0, -0.18, -0.68]} rotation={[-0.4, 0, 0]}>
-          <coneGeometry args={[0.16, 0.72, 8]} />
-          <meshStandardMaterial color={currentPetColor} roughness={0.8} />
-        </mesh>
-        <mesh position={[0, -0.5, -1.06]} rotation={[-0.7, 0, 0]}>
-          <coneGeometry args={[0.09, 0.42, 8]} />
-          <meshStandardMaterial color={currentPetColor} roughness={0.8} />
-        </mesh>
-        {/* Tail spike */}
-        <mesh position={[0, -0.72, -1.32]} rotation={[-0.8, 0, 0]}>
-          <coneGeometry args={[0.06, 0.28, 5]} />
-          <meshStandardMaterial
-            color={accentColor}
-            emissive={accentColor}
-            emissiveIntensity={0.25}
-          />
-        </mesh>
+        {/* Tail handled by ExtraPetLimbs for animation */}
         {/* Wings */}
         <mesh
           position={[-0.85, 0.22, -0.1]}
@@ -429,21 +412,6 @@ export function ExtraPetBody({
           <mesh key={`rc${i}`} position={[0.32 + (i - 1) * 0.06, -0.9, z]}>
             <coneGeometry args={[0.03, 0.1, 6]} />
             <meshStandardMaterial color="#111111" roughness={0.4} />
-          </mesh>
-        ))}
-        {/* Spine ridge */}
-        {[0, 0.18, 0.36].map((t, i) => (
-          <mesh
-            key={`sp${i}`}
-            position={[0, 0.72 - i * 0.28, -0.18 - i * 0.25]}
-            rotation={[0.5 + i * 0.1, 0, 0]}
-          >
-            <coneGeometry args={[0.055 - i * 0.01, 0.22 - i * 0.04, 4]} />
-            <meshStandardMaterial
-              color={patchColor}
-              emissive={accentColor}
-              emissiveIntensity={0.15}
-            />
           </mesh>
         ))}
       </>
@@ -517,40 +485,7 @@ export function ExtraPetBody({
             </mesh>
           )),
         )}
-        {/* Tail — 4 segments curving up */}
-        {[0, 1, 2, 3].map((i) => (
-          <mesh
-            key={`ts${i}`}
-            position={[0, -0.08 + i * 0.28, -0.78 - i * 0.18]}
-            rotation={[-0.55 - i * 0.15, 0, 0]}
-            scale={[1 - i * 0.06, 1 - i * 0.06, 1 - i * 0.06]}
-          >
-            <sphereGeometry args={[0.18, 12, 12]} />
-            <meshStandardMaterial
-              color={i % 2 === 0 ? currentPetColor : patchColor}
-              roughness={0.75}
-              metalness={0.18}
-            />
-          </mesh>
-        ))}
-        {/* Stinger */}
-        <mesh position={[0, 1.0, -1.48]} rotation={[-0.9, 0, 0]}>
-          <coneGeometry args={[0.07, 0.28, 8]} />
-          <meshStandardMaterial
-            color={accentColor}
-            emissive="#ff4400"
-            emissiveIntensity={0.55}
-          />
-        </mesh>
-        {/* Venom drop */}
-        <mesh position={[0, 1.18, -1.62]}>
-          <sphereGeometry args={[0.04, 8, 8]} />
-          <meshStandardMaterial
-            color="#44ff44"
-            emissive="#22cc22"
-            emissiveIntensity={0.9}
-          />
-        </mesh>
+        {/* Tail handled by ExtraPetLimbs for animation */}
       </>
     );
   }
@@ -1223,6 +1158,15 @@ export function ExtraPetLimbs({
             color={accentColor}
             emissive="#ff4400"
             emissiveIntensity={0.6}
+          />
+        </mesh>
+        {/* Green venom drop at the end of the animated stinger */}
+        <mesh position={[0, 1.26, -0.82]} rotation={[-0.9, 0, 0]}>
+          <sphereGeometry args={[0.04, 8, 8]} />
+          <meshStandardMaterial
+            color="#00ff00"
+            emissive="#00ff00"
+            emissiveIntensity={0.8}
           />
         </mesh>
       </group>
